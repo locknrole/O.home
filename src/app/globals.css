@@ -866,6 +866,8 @@ body.edit-on .main-grid{grid-template-columns:230px 1fr 260px}
 .main-grid .g2{align-items:start}
 .dday-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font-size:calc(12.5px*var(--fs,1))}
 .dday-row:last-child{border:none}
+/* 공지 위젯 (v2.0 사용자 요청) — 최신 공지 본문. 본문 글씨는 위젯 글씨색을 따른다 */
+.notice-widget .post-body{color:var(--wg-fg)}
 /* 커미션 신청자 위젯 (v2.0 사용자 요청) — D-day 줄과 같은 결, 오른쪽에 상태 뱃지 */
 .apply-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:calc(12.5px*var(--fs,1));line-height:calc(18px*var(--fs,1))}
 .apply-row:last-of-type{border-bottom:none}
