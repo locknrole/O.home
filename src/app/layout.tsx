@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
+// UFO 스킨 — globals.css 위에 얹는 덮어쓰기 층. 이 한 줄을 빼면 원래 모습으로 돌아간다(테마 프리셋 제외)
+import './skin.css';
 import { ThemeProvider } from '@/lib/ThemeProvider';
 import { AuthProvider } from '@/lib/auth';
 import { MainStoreProvider } from '@/lib/mainStore';
@@ -53,7 +55,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko">
+    // 첫 페인트 스크립트가 html에 테마 변수·data-scheme을 미리 칠하므로 서버 HTML과 속성이 다른 게 정상
+    <html lang="ko" suppressHydrationWarning>
       <head>
         {/* 웨일·크롬의 「웹 콘텐츠 다크 모드」(강제 어둡게)가 페이지를 다시 칠하지 않게 (v2.0 사용자 제보).
             CSS의 color-scheme과 같은 선언인데, 스타일 로드 전 첫 페인트부터 적용되도록 메타로도 둔다 */}
@@ -65,7 +68,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             있다(사용자 발견 — "처음 접속할 때 기본 다크모드가 깜빡") — body 자체가 파싱되는 순간 CSS만으로도
             그려질 수 있기 때문. <head> 맨 앞으로 옮겨 렌더 차단 구간(첫 페인트 전) 안에서 먼저 실행되게 한다 (v2.0) */}
         <script dangerouslySetInnerHTML={{
-          __html: `(function(){try{var m=JSON.parse(localStorage.getItem('ohome.themeCss.v1'));if(m){var s=document.documentElement.style;for(var k in m)s.setProperty(k,m[k]);}
+          __html: `(function(){try{var d=document.documentElement,m=JSON.parse(localStorage.getItem('ohome.themeCss.v1'));
+/* UFO 스킨 — 방문자 명암으로 마지막에 칠한 맵이 있으면 그것이 우선 (사이트 맵은 관리자 기준이라 방문자 선택과 다를 수 있다) */
+var u=JSON.parse(localStorage.getItem('ohome.schemeCss.v1')||'null');if(u&&u.css){m=u.css;d.dataset.scheme=u.scheme;}
+if(m){var s=d.style;for(var k in m)s.setProperty(k,m[k]);}
 /* 웨일 전용 (v2.0 사용자 제보) — 웨일의 「웹 콘텐츠 다크 모드」는 only light 옵트아웃을 무시한다.
    자체 다크 엔진은 「다크를 지원하는 사이트」는 건너뛰므로, 웨일에서만 다크 지원을 선언한다.
    다른 브라우저는 검증된 only light 유지 — 영향 범위를 웨일로 좁힌다 */
@@ -73,9 +79,11 @@ if(navigator.userAgent.indexOf('Whale/')>-1){document.documentElement.style.colo
         }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Noto+Serif+KR:wght@500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Noto+Serif+KR:wght@500;700&family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
+        {/* UFO 스킨 본문 폰트 — Inter(영문·숫자) + Pretendard(한글) */}
+        <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
       </head>
       <body>
         {/* 서버 연결 확정 후에 앱을 그림 — 설정(ohome.config.json/로컬/env)을 한 번 읽는다 (v2.0) */}
