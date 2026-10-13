@@ -173,6 +173,12 @@ html[data-scheme="dark"] .brand-ico .alien{opacity:1;transform:none}
   .grp.more{display:none}
   #appMain{background:var(--panel-solid)}
 }
+/* 모바일·태블릿(860px 이하)은 가로 카테고리 줄을 숨긴다 (v2.0 사용자 요청 — 「잘 작동 안 해서 그냥 숨겨 줘」).
+   원래 O.HOME처럼 메뉴는 메인의 메뉴리스트 위젯이 맡는다 */
+@media (max-width:860px){
+  .gnb{display:none !important}
+  .topbar{padding-bottom:10px}
+}
 
 /* ==========================================================
    면 — 패널·카드는 바탕과 같은 색, 선으로만 구분
@@ -203,10 +209,23 @@ html:not([data-scheme="custom"]) :is(.char-card,.rel-card,.cm-card,.dt-card):hov
    980px = 안쪽 920(lib/mainStore MAIN_CANVAS_INNER) + 양옆 30.
    더 좁은 화면에서는 page.tsx가 캔버스 전체를 비율대로 줄인다(zoom). 편집모드는 1:1
    ========================================================== */
-@media (min-width:621px){
+@media (min-width:861px){
   body.main-fixed .page-main-wrap,
   body.edit-on .page-main-wrap{width:980px;min-width:980px;margin-left:auto;margin-right:auto}
   .page.page-main-wrap{padding-left:30px;padding-right:30px}
+}
+/* 태블릿(621~860px)도 모바일과 같은 세로 나열 (v2.0 사용자 요청 — 가로 메뉴 줄을 숨기면 태블릿엔 메뉴가 없어서,
+   메뉴리스트 위젯이 보이는 모바일 배치로). 620px 이하는 globals.css 모바일 규칙이 이미 같은 일을 한다 */
+@media (min-width:621px) and (max-width:860px){
+  body.main-fixed .page-main-wrap{min-width:0;margin-left:0}
+  body.main-fixed #appMain,body.edit-on #appMain{overflow-x:hidden}
+  .main-grid{grid-template-columns:1fr}
+  .main-grid:not(.abs) > *{display:contents}
+  .main-grid.abs{display:grid !important;height:auto !important}
+  .menu-list,.wgt-hide-pc{display:block}
+  .wgt{transform:none !important;width:auto !important;height:auto !important;position:static !important;left:auto !important;top:auto !important;margin-bottom:10px !important}
+  .wgt.wgt-hide-m{display:none !important}
+  .deco-wgt{width:100% !important;height:auto !important;aspect-ratio:var(--deco-ar,1 / 1) !important;margin:0 !important}
 }
 .login-box h3{margin-bottom:12px}
 

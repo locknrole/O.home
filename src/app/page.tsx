@@ -119,13 +119,13 @@ export default function MainPage() {
 
   /* 캔버스 맞춤 (UFO 스킨 — 화면이 좁으면 본문 폭이 캔버스보다 좁아질 수 있다).
      좁으면 가로 스크롤 대신 캔버스 전체를 비율대로 줄여 저장한 배치를 그대로 보여 준다.
-     편집모드는 좌표를 1:1로 다뤄야 하니 줄이지 않고(좁으면 기존처럼 가로 스크롤), 모바일은 흐름 스택이라 해당 없음 */
+     편집모드는 좌표를 1:1로 다뤄야 하니 줄이지 않고(좁으면 기존처럼 가로 스크롤), 모바일·태블릿은 흐름 스택이라 해당 없음 */
   const [fit, setFit] = useState(1);
   useEffect(() => {
     const host = document.getElementById('appMain');
     if (!host) return;
     const calc = () => {
-      const mobile = window.matchMedia('(max-width:620px)').matches;
+      const mobile = window.matchMedia('(max-width:860px)').matches;   // 태블릿도 세로 나열 (skin.css)
       setFit(mobile || editOn ? 1 : Math.min(1, host.clientWidth / MAIN_CANVAS_W));
     };
     calc();
