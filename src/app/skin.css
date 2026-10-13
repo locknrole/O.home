@@ -221,9 +221,7 @@ html:not([data-scheme="custom"]) :is(.char-card,.rel-card,.cm-card,.dt-card):hov
   body:not(.edit-on) .main-grid .wgt[data-wtype="banner"]{grid-column:1/-1;order:10 !important}
   body:not(.edit-on) .main-grid .wgt[data-wtype="banner"] .banner{height:230px}
   body:not(.edit-on) .main-grid .wgt[data-wtype="member"]{order:20 !important}
-  /* 공지 본문 — 배너 바로 아래 두 칸 전체 (본문이라 넓게) */
-  body:not(.edit-on) .main-grid .wgt[data-wtype="notice"]{grid-column:1/-1;order:15 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="dday"]{order:22 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="dday"]{order:21 !important}
   body:not(.edit-on) .main-grid .wgt[data-wtype="latest"]{grid-column:1/-1;order:30 !important}
   body:not(.edit-on) .main-grid .wgt[data-wtype="diary"]{order:40 !important}
   body:not(.edit-on) .main-grid .wgt[data-wtype="todo"]{order:41 !important}
