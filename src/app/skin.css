@@ -1,0 +1,272 @@
+/* ==========================================================
+   UFO 스킨 — 티스토리 Gravity 스킨의 결을 O.HOME에 얹는 덮어쓰기 층
+   · 흰(라이트) / 먹색(다크) 한 장 바탕 + 1px 선 + 그림자 없음
+   · 상단 메뉴 → 왼쪽에 늘 보이는 카테고리 사이드바
+   · 우주 장식은 작게: 바깥 여백의 옅은 별, 로고 옆 UFO/외계인, 메뉴 ✦
+   색 팔레트는 lib/theme.ts의 LIGHT_THEME / DARK_THEME, 명암 전환은 ThemeProvider(scheme).
+   html[data-scheme]은 light | dark | custom — custom(관리자 손수 정한 색)이면 색 덮어쓰기는 하지 않는다.
+   이 파일은 globals.css 뒤에 import되므로 같은 우선순위면 여기가 이긴다.
+   ========================================================== */
+
+/* ---------- 스킨 토큰 ---------- */
+:root{
+  --sans-base:'Inter','Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+  /* 제목용 세리프 자리도 스킨에서는 같은 산세리프 (환경설정에서 역할 폰트를 따로 지정하면 그게 우선) */
+  --serif-base:var(--sans-base);
+  --side-w:220px;
+  --wrap-w:1000px;
+  --primary:#e3d4c7;
+  --primary-ink:#b89c84;   /* 베이지는 글씨로 쓰기엔 옅어서 한 톤 진하게 */
+  --wrap-sub:#fbfbfb;
+  --hover:#f6f6f6;
+  --star:#e3d4c7;
+}
+html[data-scheme="light"]{
+  --line:#efefef; --line-dark:#f2f2f2;
+}
+html[data-scheme="dark"]{
+  --primary:#c7e3d4; --primary-ink:#c7e3d4;
+  --wrap-sub:#292929; --hover:#2e2e2e; --star:#c7e3d4;
+  --line:#3b3b3b; --line-dark:#3b3b3b;
+}
+::selection{background:var(--primary);color:#333}
+
+/* ---------- 바탕 — 그라데이션 하이라이트 없이 한 장 + 바깥 여백의 옅은 별 ---------- */
+html:not([data-scheme="custom"]) body{
+  background:linear-gradient(var(--bg-angle,180deg),var(--bg-g1) 0%,var(--bg-g2) 100%);
+  background-attachment:fixed;
+}
+html:not([data-scheme="custom"]) body::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 6% 12%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 14% 38%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 9% 71%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 18% 88%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 3% 52%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 93% 9%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 88% 33%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 96% 58%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 85% 79%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 91% 94%,var(--star) 50%,transparent 51%);
+  animation:ufoTwinkle 5s ease-in-out infinite;
+}
+@keyframes ufoTwinkle{0%,100%{opacity:.35}50%{opacity:.9}}
+
+/* ==========================================================
+   셸 — 왼쪽 사이드바 + 가운데 본문 기둥 (PC)
+   ========================================================== */
+@media (min-width:861px){
+  body{flex-direction:row;justify-content:center}
+
+  .topbar{
+    position:relative;z-index:60;flex:0 0 var(--side-w);width:var(--side-w);height:100vh;
+    flex-direction:column;align-items:stretch;gap:0;
+    padding:30px 22px 28px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;
+    background:var(--top-bg);backdrop-filter:none;
+    border-bottom:0;border-left:1px solid var(--line);
+  }
+  .topbar::-webkit-scrollbar{display:none}
+
+  #appMain{
+    flex:0 1 var(--wrap-w);min-width:0;
+    background:var(--panel-solid);
+    border-left:1px solid var(--line);border-right:1px solid var(--line);
+  }
+  .page{padding-left:40px;padding-right:40px}
+
+  /* 로고 */
+  .brand{order:0;margin-bottom:22px;white-space:normal}
+  .brand small{margin-top:4px;letter-spacing:.18em}
+
+  /* 도구 줄 — 원본 사이드바의 작은 사각 버튼 줄 */
+  .side-tools{order:1;flex-wrap:wrap;margin-bottom:30px}
+  .user-wrap,.login-link{margin-left:0}
+  .user-menu{right:auto;left:0}
+
+  /* 카테고리 — 세로 목록, 하위 메뉴는 펼친 채로 들여쓰기 */
+  .gnb{
+    order:2;flex:0 0 auto;flex-direction:column;gap:0;
+    --gnb-all:1;   /* TopBar: 넘침(⋯) 계산을 끄고 전부 표시 */
+  }
+  .gnb::before{
+    content:"CATEGORY";display:block;padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid var(--line);
+    font-size:calc(9.5px*var(--fs,1));font-weight:600;letter-spacing:.18em;color:color-mix(in srgb,var(--top-fg) 55%,transparent);
+  }
+  .gnb > button,.gnb > .grp > button{height:38px}
+  .gnb button,.gnb a.gnb-link{
+    position:relative;display:flex;align-items:center;width:100%;padding:0;border-radius:0;
+    font-size:calc(13px*var(--fs,1));letter-spacing:0;text-align:left;background:none;
+    transition:transform .25s ease,color .2s;
+  }
+  .gnb button:hover,.gnb a.gnb-link:hover{background:none;transform:translateX(4px)}
+  .gnb button.on,.gnb a.gnb-link.on{background:none;font-weight:600}
+  .grp{display:block}
+  .grp > button::after,.grp::after,.grp .sub::before{display:none}
+  .grp .sub{
+    display:block;position:static;min-width:0;max-height:none;overflow:visible;
+    padding:0 0 6px 12px;background:none;border:0;border-radius:0;box-shadow:none;animation:none;
+  }
+  .grp .sub button,.grp .sub a{
+    height:32px;padding:0;border-radius:0;font-size:calc(12.5px*var(--fs,1));
+    color:color-mix(in srgb,var(--top-fg) 62%,transparent);background:none;
+  }
+  .grp .sub button:hover,.grp .sub a:hover{background:none;color:var(--top-hv)}
+  .grp.more{display:none}
+  /* ✦ — 마우스를 올린 메뉴·지금 메뉴 왼쪽 */
+  .gnb button::before{
+    content:"✦";position:absolute;left:-12px;font-size:8px;color:var(--primary-ink);
+    opacity:0;transform:scale(.4) rotate(-45deg);transition:opacity .25s,transform .25s;
+  }
+  .gnb button:hover::before,.gnb button.on::before{opacity:1;transform:none}
+}
+
+/* 로고 공통 */
+.brand{font-family:var(--font-logo,var(--sans));font-size:calc(15px*var(--fs,1));font-weight:700;letter-spacing:-.01em}
+.brand small{font-size:calc(9px*var(--fs,1));color:color-mix(in srgb,var(--top-fg) 55%,transparent)}
+.brand-row{display:inline-flex;align-items:center;gap:8px}
+.brand-ico{display:inline-grid;width:20px;height:20px;flex:0 0 20px;color:var(--primary-ink);animation:ufoHover 3s ease-in-out infinite}
+.brand-ico svg{grid-area:1/1;width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:opacity .35s,transform .45s cubic-bezier(.4,1.6,.5,1)}
+.brand-ico .alien{opacity:0;transform:scale(.3) rotate(-40deg)}
+html[data-scheme="dark"] .brand-ico .ufo{opacity:0;transform:translateY(-8px) scale(.6)}
+html[data-scheme="dark"] .brand-ico .alien{opacity:1;transform:none}
+@keyframes ufoHover{50%{transform:translateY(-2px) rotate(-6deg)}}
+
+/* 도구 줄 공통 */
+.side-tools{display:flex;align-items:center;gap:6px}
+.btn-scheme,.topbar .badge-dot{
+  width:28px;height:28px;display:grid;place-items:center;flex:0 0 28px;
+  border:1px solid var(--line);border-radius:6px;background:var(--wrap-sub);color:color-mix(in srgb,var(--top-fg) 60%,transparent);
+  transition:color .2s,transform .5s ease;
+}
+.btn-scheme:hover,.topbar .badge-dot:hover{color:var(--top-fg)}
+.btn-scheme:active{transform:rotate(180deg)}
+.btn-scheme svg,.topbar .badge-dot svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;display:block}
+.user-chip{gap:7px;padding:2px 4px;font-size:calc(12px*var(--fs,1));min-width:0}
+.user-chip:hover{background:none}
+.user-chip .avatar{width:24px;height:24px;border-color:var(--line)}
+.login-link{height:28px;padding:0 12px;border-color:var(--line);border-radius:6px;background:var(--wrap-sub);font-size:calc(11.5px*var(--fs,1))}
+.user-menu,.grp .sub{border-color:var(--line)}
+
+/* ==========================================================
+   모바일·좁은 화면 — 상단 바로 되돌리고 카테고리는 가로로 넘기는 한 줄
+   ========================================================== */
+@media (max-width:860px){
+  .topbar{height:auto;flex-wrap:wrap;row-gap:0;padding:10px 16px 0;border-bottom:1px solid var(--line);backdrop-filter:none}
+  .side-tools{margin-left:auto}
+  .gnb{
+    display:flex !important;order:3;flex:0 0 100%;width:100%;gap:16px;padding:8px 0 10px;
+    overflow-x:auto;scrollbar-width:none;--gnb-all:1;
+  }
+  .gnb::-webkit-scrollbar{display:none}
+  .gnb button{padding:4px 0;background:none !important;border-radius:0}
+  .grp{display:flex;align-items:center;gap:12px}
+  .grp > button{opacity:.5;font-size:calc(11px*var(--fs,1))}
+  .grp > button::after,.grp::after{display:none}
+  .grp .sub{display:flex;gap:12px;position:static;padding:0;background:none;border:0;box-shadow:none;min-width:0;max-height:none;overflow:visible;animation:none}
+  .grp .sub button{width:auto;padding:4px 0;white-space:nowrap}
+  .grp.more{display:none}
+  #appMain{background:var(--panel-solid)}
+}
+
+/* ==========================================================
+   면 — 패널·카드는 바탕과 같은 색, 선으로만 구분
+   ========================================================== */
+html:not([data-scheme="custom"]) :is(.panel,.char-card,.rel-card,.multi-illust,.cm-total-slot,.cm-viewer,.cm-card,.dt-card,.ticket,.bticket,.mng-box,.setup-way,.tc-card){
+  border:1px solid var(--line);box-shadow:none;
+}
+html:not([data-scheme="custom"]) .banner{box-shadow:none}
+html:not([data-scheme="custom"]) :is(.char-card,.rel-card,.cm-card,.dt-card):hover{border-color:var(--primary)}
+
+/* 페이지 머리 — 원본 cover-title 결: 산세리프 굵게, 포인트색 */
+.page-head h1{
+  font-family:var(--font-pagetitle,var(--sans));font-size:calc(20px*var(--fs,1));
+  font-weight:var(--fw-pagetitle,700);letter-spacing:-.01em;
+}
+.page-head p{font-size:calc(12px*var(--fs,1))}
+
+/* 위젯 제목 — 원본 cover-title */
+.widget h4,.login-box h3{
+  font-size:calc(12.5px*var(--fs,1));font-weight:700;letter-spacing:.04em;color:var(--wg-title);
+}
+.dday-row b,.apply-row b{font-family:var(--sans)}
+.panel.widget,.panel.login-box{border-radius:var(--radius)}
+
+/* ==========================================================
+   메인 — 원본처럼 한 기둥 안에 위젯을 종류별 자리로 (PC)
+   저장된 절대 좌표는 편집모드(+ 그리드)에서만 쓴다. 모바일은 원래 흐름 스택 그대로.
+   ========================================================== */
+@media (min-width:621px){
+  body:not(.edit-on) .page-main-wrap{min-width:0 !important;width:auto !important;margin-left:auto !important;margin-right:auto !important}
+  body:not(.edit-on) #appMain{overflow-x:hidden}
+  body:not(.edit-on) .main-grid,
+  body:not(.edit-on) .main-grid.abs{
+    display:grid !important;height:auto !important;
+    grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch;
+  }
+  body:not(.edit-on) .main-grid:not(.abs) > *{display:contents}
+  body:not(.edit-on) .main-grid .wgt{
+    position:static !important;left:auto !important;top:auto !important;
+    width:auto !important;height:auto !important;transform:none !important;margin:0 !important;
+    z-index:auto !important;
+  }
+  body:not(.edit-on) .main-grid .wgt > *:first-child{height:100%;margin-bottom:0}
+  /* 자리 — 넓은 것은 두 칸, 작은 것은 짝지어서. 순서는 종류 기준 (모바일 순서 설정은 모바일에 그대로) */
+  body:not(.edit-on) .main-grid .wgt[data-wtype="banner"]{grid-column:1/-1;order:10 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="banner"] .banner{height:230px}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="member"]{order:20 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="dday"]{order:21 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="latest"]{grid-column:1/-1;order:30 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="diary"]{order:40 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="todo"]{order:41 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="memo"]{grid-column:1/-1;order:50 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="upcoming"]{order:51 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="apply"]{order:60 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="memoboard"]{grid-column:1/-1;order:70 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="freetext"]{grid-column:1/-1;order:80 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="deco"]{order:90 !important}
+  body:not(.edit-on) .main-grid .wgt[data-wtype="deco"]:has(img){aspect-ratio:1}
+  /* LATEST — 두 칸을 다 쓰니 썸네일을 한 줄로 더 */
+  body:not(.edit-on) .main-grid .wgt[data-wtype="latest"] .latest-grid{grid-template-columns:repeat(4,1fr)}
+}
+.login-box h3{margin-bottom:12px}
+
+/* ==========================================================
+   다크 — globals.css에 박혀 있는 밝은 색(흰 입력칸·연회색 호버)을 먹색 판으로
+   ========================================================== */
+html[data-scheme="dark"] :is(
+  .k-input,.k-textarea,.k-select .cur,.k-select .opts,.k-sel-pop,.k-cal,.k-step,.btn-ghost,
+  .k-check .box,.k-radio .dot,.picker-pop,.re-wrap,.dropzone,.qa-search,.cal-cell,.upfile-row,
+  .preview-box,.searchbar.light,.dl-row.lift,.pill,.re-toolbar,.upzone,.thr-post .hv-actions,.mw-no,
+  .upfile-row .pv,.gb-item .reply,.post-body pre,.post-body code,.tl-item::before
+){background:var(--wrap-sub);color:var(--ink);border-color:var(--line)}
+html[data-scheme="dark"] :is(
+  .rp-room:hover,.rp-pick-pop button:hover,.m-act button:hover,.memo-list-item:hover,.icobtn:hover,
+  .thr-item:hover,.menu-list a:hover,.multi-row:hover,.qa-item:hover,.list-item:hover,.tagside .tag:hover,
+  .brow:hover,.k-select .opts div:hover,.k-sel-pop div:hover,.k-cal .hd button:hover,.k-cal .days button:hover,
+  .k-step button:hover,.re-btn:hover,.searchbar.light button:hover,.thr-post .hv-actions button:hover,
+  .btn-ghost:hover,.dropzone:hover,.dropzone.drag
+){background:var(--hover);color:var(--ink)}
+/* 검정 판 + 흰 글씨였던 선택 상태 — 다크에선 글씨색(--ink)이 밝아져 흰 위 흰이 된다 → 포인트 버튼색으로 */
+html[data-scheme="dark"] :is(
+  .k-select .opts div.sel,.k-sel-pop div.sel,.k-cal .days button.sel,.set-nav button.on,.re-btn.on,
+  .pill.dark,.cat-badge,.hover-list .row:hover
+){background:var(--btn-dark);color:var(--btn-dark-fg);border-color:var(--btn-dark)}
+html[data-scheme="dark"] .k-toggle input:checked + .tr{background:var(--btn-dark)}
+html[data-scheme="dark"] .k-toggle .tr{background:#4a4a4a}
+html[data-scheme="dark"] :is(.gb-item p,.gb-item .reply){color:var(--ink)}
+html[data-scheme="dark"] .bticket .bt-ph{background:linear-gradient(135deg,#2e2e2e,#232323)}
+html[data-scheme="dark"] .k-check .box,html[data-scheme="dark"] .k-radio .dot{border-color:#5a5a5a}
+html[data-scheme="dark"] .ctx-menu{background:rgba(41,41,41,.98)}
+/* 라이트 — 어두운 배경을 전제로 한 흰 반투명 선들 */
+html[data-scheme="light"] .add-wgt{border-color:var(--line);color:var(--sub)}
+html[data-scheme="light"] .add-wgt:hover{border-color:var(--primary);color:var(--ink)}
+html[data-scheme="light"] .main-grid.gridlines{
+  background-image:
+    repeating-linear-gradient(to right,rgba(0,0,0,.05) 0 1px,transparent 1px 10px),
+    repeating-linear-gradient(to bottom,rgba(0,0,0,.05) 0 1px,transparent 1px 10px);
+}
+
+@media (prefers-reduced-motion:reduce){
+  body::after,.brand-ico{animation:none !important}
+}

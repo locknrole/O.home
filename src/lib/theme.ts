@@ -71,42 +71,52 @@ export interface ThemeState {
   vars: ThemeVars;
 }
 
-/** 다크 모드 (기본 디폴트) — 프로토타입 "시크 모노톤" 기준 */
+/* UFO 스킨 (티스토리 Gravity 스킨 결) — 흰/먹색 한 장 바탕 + 1px 선 + 그림자 없음.
+   라이트는 베이지(#E3D4C7), 다크는 민트(#C7E3D4)가 포인트. 페이지 바탕과 카드가 같은 색이고
+   카드는 선으로만 구분한다 (skin.css가 --line을 칠한다) */
+
+/** 다크 모드 (기본 디폴트) — UFO 스킨 다크: 먹색 바탕 + 민트 */
 export const DARK_THEME: ThemeVars = {
-  bgG1: '#2b3038', bgG2: '#121418',
+  bgG1: '#1f1f1f', bgG2: '#1f1f1f',
   bgType: 'gradient', bgAngle: 180, bgBlur: 0,
-  cardBg: '#fbfbfc', cardFg: '#1d2025',
-  topBg: '#14161b', topFg: '#aab0ba', topHv: '#ffffff', topBrand: '#f2f3f5',
-  ddBg: '#1c1f25', ddFg: '#c6cad1', ddHv: '#ffffff',
-  pageTitle: '#eceef1', pageDesc: '#9aa0a9',
-  bgmBg: '#16181d', bgmFg: '#eef0f3', bgmIc: '#cfd3da', bgmVol: '#e8eaee',
-  sbThumb: '#565d68', sbBd: '#1a1d22',
-  searchBg: '#232830', searchFg: '#e8eaee', searchIc: '#8b919b', searchBd: '#3a404a',
-  btnDark: '#1d2025', btnDarkFg: '#ffffff', btnDarkHv: '#33373e',
-  memoBoard: '#2a2f37', memoBoardBd: '#3a404b',
-  tabBg: '#3a4049', tabFg: '#aab0ba', tabOnBg: '#fbfbfc', tabOnFg: '#1d2025',
-  cropBg: '#2c313a',
-  accent: '#a63a45', accentSoft: '#c96a73',
-  radius: 14, radiusS: 9, shadow: 100, ddShadow: 100,
+  cardBg: '#1f1f1f', cardFg: '#fcfcfc',
+  topBg: '#1f1f1f', topFg: '#fcfcfc', topHv: '#c7e3d4', topBrand: '#fcfcfc',
+  ddBg: '#292929', ddFg: '#fcfcfc', ddHv: '#ffffff',
+  pageTitle: '#c7e3d4', pageDesc: '#7f7f7f',
+  bgmBg: '#292929', bgmFg: '#fcfcfc', bgmIc: '#9a9a9a', bgmVol: '#c7e3d4',
+  sbThumb: '#c7e3d4', sbBd: '#1f1f1f',
+  searchBg: '#1f1f1f', searchFg: '#fcfcfc', searchIc: '#7f7f7f', searchBd: '#3b3b3b',
+  btnDark: '#c7e3d4', btnDarkFg: '#1f1f1f', btnDarkHv: '#b3d6c3',
+  memoBoard: '#292929', memoBoardBd: '#3b3b3b',
+  tabBg: '#292929', tabFg: '#9a9a9a', tabOnBg: '#c7e3d4', tabOnFg: '#1f1f1f',
+  segBg: '#292929', segFg: '#9a9a9a',
+  wgTitle: '#c7e3d4', wgBorder: true, wgBd: '#3b3b3b',
+  cropBg: '#292929',
+  focusColor: '#c7e3d4',
+  accent: '#eb622e', accentSoft: '#f4a27f',
+  radius: 14, radiusS: 10, shadow: 0, ddShadow: 60,
 };
 
-/** 라이트 모드 — 호버 글씨색은 흰 배경에서도 보이는 색 (v1.9) */
+/** 라이트 모드 — UFO 스킨 라이트: 흰 바탕 + 베이지. 베이지 원색은 글씨로 쓰기엔 옅어 제목은 한 톤 진하게 */
 export const LIGHT_THEME: ThemeVars = {
-  bgG1: '#f2f3f5', bgG2: '#dfe1e6',
+  bgG1: '#ffffff', bgG2: '#ffffff',
   bgType: 'gradient', bgAngle: 180, bgBlur: 0,
-  cardBg: '#fbfbfc', cardFg: '#1d2025',
-  topBg: '#fbfbfc', topFg: '#5d636d', topHv: '#a63a45', topBrand: '#2b3038',
-  ddBg: '#ffffff', ddFg: '#3c434d', ddHv: '#000000',
-  pageTitle: '#2b3038', pageDesc: '#7a8089',
-  bgmBg: '#ffffff', bgmFg: '#2b3038', bgmIc: '#5d636d', bgmVol: '#3c434d',
-  sbThumb: '#b8bcc4', sbBd: '#e2e4e8',
-  searchBg: '#ffffff', searchFg: '#2b3038', searchIc: '#8a9099', searchBd: '#d7dae0', // 라이트에서 또렷하게
-  btnDark: '#5d636d', btnDarkFg: '#ffffff', btnDarkHv: '#6d7480', // 라이트는 뮤트 슬레이트 — 검정이면 대비 과함 (사용자 피드백)
-  memoBoard: '#e7e9ee', memoBoardBd: '#d4d7de', // 흰 카드와 구분되는 밝은 회색 판 (v1.9)
-  tabBg: '#e4e6eb', tabFg: '#6a7078', tabOnBg: '#ffffff', tabOnFg: '#1d2025',
-  cropBg: '#e2e5ea', // 라이트 — 투명 이미지가 보이는 밝은 판 (v1.9)
-  accent: '#a63a45', accentSoft: '#c96a73',
-  radius: 14, radiusS: 9, shadow: 30, ddShadow: 30, // 밝은 배경에선 그림자를 약하게 (사용자 확정 30%)
+  cardBg: '#ffffff', cardFg: '#444444',
+  topBg: '#ffffff', topFg: '#444444', topHv: '#b89c84', topBrand: '#444444',
+  ddBg: '#ffffff', ddFg: '#444444', ddHv: '#000000',
+  pageTitle: '#c4a88f', pageDesc: '#7f7f7f',
+  bgmBg: '#ffffff', bgmFg: '#444444', bgmIc: '#7f7f7f', bgmVol: '#c4a88f',
+  sbThumb: '#e3d4c7', sbBd: '#ffffff',
+  searchBg: '#ffffff', searchFg: '#444444', searchIc: '#7f7f7f', searchBd: '#eaeaea',
+  btnDark: '#e3d4c7', btnDarkFg: '#444444', btnDarkHv: '#d8c4b2',
+  memoBoard: '#fbfbfb', memoBoardBd: '#eaeaea',
+  tabBg: '#fbfbfb', tabFg: '#7f7f7f', tabOnBg: '#e3d4c7', tabOnFg: '#444444',
+  segBg: '#fbfbfb', segFg: '#7f7f7f',
+  wgTitle: '#c4a88f', wgBorder: true, wgBd: '#f2f2f2',
+  cropBg: '#f2f2f2',
+  focusColor: '#e3d4c7',
+  accent: '#eb622e', accentSoft: '#f4a27f',
+  radius: 14, radiusS: 10, shadow: 0, ddShadow: 30,
 };
 
 /**

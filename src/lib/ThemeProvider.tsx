@@ -7,7 +7,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import {
   ThemeMode, PointTone, ThemeVars, ThemeState, ThemeStore, ThemePreset,
-  DARK_THEME, DEFAULT_THEME_STORE, defaultVarsFor, derivePointTheme, themeToCssVars,
+  DARK_THEME, LIGHT_THEME, DEFAULT_THEME_STORE, defaultVarsFor, derivePointTheme, themeToCssVars,
 } from './theme';
 import { newId } from './postStore';
 import { getBlob } from './blobStore';
@@ -36,7 +36,13 @@ interface ThemeCtx {
   savePreset: (name: string) => void;          // 현재 모드의 드래프트 값을 프리셋으로 저장 (즉시 저장)
   applyPreset: (id: string) => void;           // 프리셋 → 커스텀 모드에 적용 (드래프트)
   removePreset: (id: string) => void;
+  /** 방문자가 보는 명암 (UFO 스킨) — 커스텀 모드면 null(관리자 색 그대로, 토글 없음) */
+  scheme: Scheme | null;
+  /** 방문자 라이트/다크 전환 — 이 기기에만 저장 (사이트 설정은 그대로) */
+  toggleScheme: () => void;
 }
+
+export type Scheme = 'light' | 'dark';
 
 const Ctx = createContext<ThemeCtx | null>(null);
 const STORAGE_KEY = 'ohome.theme.v2';
@@ -44,13 +50,20 @@ const LEGACY_KEY = 'ohome.theme.v1';
 /** 첫 페인트 전에 적용할 CSS 변수 맵 (layout.tsx 인라인 스크립트가 읽음 — FOUC 방지) */
 const CSS_KEY = 'ohome.themeCss.v1';
 const PRESET_KEY = 'ohome.themePresets.v1';
+/** 방문자 명암 선택 · 그 명암으로 칠한 CSS 맵 — 사람마다 다른 값이라 서버 설정이 아닌 이 기기 localStorage에만 둔다.
+ *  layout.tsx 인라인 스크립트가 첫 페인트 전에 SCHEME_CSS_KEY를 먼저 읽는다 */
+const SCHEME_KEY = 'ohome.scheme.v1';
+const SCHEME_CSS_KEY = 'ohome.schemeCss.v1';
 
+/* 라이트·다크는 고칠 수 없는 프리셋이다 — 세부 수정을 하면 커스텀으로 복사되어 넘어간다(setVar).
+   그래서 저장본의 perMode.light/dark는 「저장하던 때의 기본값」일 뿐이라, 늘 현재 프리셋을 쓴다
+   (안 그러면 스킨을 바꿔도 예전에 저장한 사이트는 예전 색에 머문다) */
 const normalize = (s: Partial<ThemeStore> | null | undefined): ThemeStore => ({
   ...DEFAULT_THEME_STORE,
   ...(s ?? {}),
   perMode: {
-    light: { ...DEFAULT_THEME_STORE.perMode.light, ...(s?.perMode?.light ?? {}) },
-    dark: { ...DEFAULT_THEME_STORE.perMode.dark, ...(s?.perMode?.dark ?? {}) },
+    light: DEFAULT_THEME_STORE.perMode.light,
+    dark: DEFAULT_THEME_STORE.perMode.dark,
     point: { ...DEFAULT_THEME_STORE.perMode.point, ...(s?.perMode?.point ?? {}) },
     custom: { ...DEFAULT_THEME_STORE.perMode.custom, ...(s?.perMode?.custom ?? {}) },
   },
@@ -69,6 +82,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [pageColor, setPageColor] = useState<{ color: string; tone?: PointTone } | null>(null);
   const [pageBg, setPageBgState] = useState<PageBg | null>(null);   // 자관별 배경 (v2.0)
   const [loaded, setLoaded] = useState(false);   // 저장본 로드 전 기본 다크를 DOM에 쓰지 않기 (FOUC 방지)
+  const [viewerScheme, setViewerScheme] = useState<Scheme | null>(null);   // 방문자가 직접 고른 명암 (없으면 사이트 기본)
+
+  // 방문자 명암 — 커스텀 모드는 관리자가 손수 정한 색이라 건드리지 않는다
+  const scheme: Scheme | null = draft.mode === 'custom' ? null
+    : viewerScheme ?? (draft.mode === 'light' ? 'light' : draft.mode === 'dark' ? 'dark' : draft.pointTone);
+  const toggleScheme = useCallback(() => {
+    const next: Scheme = scheme === 'dark' ? 'light' : 'dark';
+    setViewerScheme(next);
+    try { localStorage.setItem(SCHEME_KEY, next); } catch { /* 무시 */ }
+  }, [scheme]);
 
   // 최초 로드 — v2 우선, 없으면 v1 마이그레이션 (기존 vars를 해당 모드의 수정본으로 승계)
   useEffect(() => {
@@ -97,6 +120,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
       const pr = getRawSetting(PRESET_KEY);
       if (pr) setPresets(JSON.parse(pr));
+      const vs = localStorage.getItem(SCHEME_KEY);
+      if (vs === 'light' || vs === 'dark') setViewerScheme(vs);
     } catch { /* 무시하고 기본 테마 */ }
     setLoaded(true);
   }, []);
@@ -109,22 +134,43 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
        **표시 옵션까지 기본값으로 리셋**되던 것을 사이트 설정에서 이어받는다 (v2.0 사용자 제보 —
        「헤더 설명을 껐는데 커스텀 테마 캐릭터 상세에서만 다시 보인다」) */
     const site = draft.perMode[draft.mode];
-    applyToDom(pageColor
-      ? {
-        ...derivePointTheme(pageColor.color, pageColor.tone ?? draft.pointTone),
+    const root = document.documentElement;
+    if (scheme) {
+      /* UFO 스킨 — 라이트·다크·포인트 모드는 방문자가 고른 명암의 스킨 팔레트로 칠한다.
+         포인트 모드의 기준색과 캐릭터·자관 테마컬러는 팔레트를 통째로 바꾸지 않고 포인트색만 바꾼다
+         (먹색/흰 한 장 바탕이 페이지마다 뒤집히지 않게) */
+      const preset = scheme === 'light' ? LIGHT_THEME : DARK_THEME;
+      const withAccent = (c: string): ThemeVars => ({
+        ...preset, accent: c, accentSoft: derivePointTheme(c, scheme).accentSoft,
+      });
+      const siteVars: ThemeVars = {
+        ...(draft.mode === 'point' ? withAccent(draft.pointAccent) : preset),
         pageHead: site.pageHead, pageHeadM: site.pageHeadM,
-      }
-      : site);
+      };
+      applyToDom(pageColor
+        ? { ...withAccent(pageColor.color), pageHead: site.pageHead, pageHeadM: site.pageHeadM }
+        : siteVars);
+      root.dataset.scheme = scheme;
+      try { localStorage.setItem(SCHEME_CSS_KEY, JSON.stringify({ scheme, css: themeToCssVars(siteVars) })); } catch { /* 무시 */ }
+    } else {
+      applyToDom(pageColor
+        ? {
+          ...derivePointTheme(pageColor.color, pageColor.tone ?? draft.pointTone),
+          pageHead: site.pageHead, pageHeadM: site.pageHeadM,
+        }
+        : site);
+      root.dataset.scheme = 'custom';
+      try { localStorage.removeItem(SCHEME_CSS_KEY); } catch { /* 무시 */ }
+    }
     // 페이지 배경 지정 (v2.0) — 팔레트를 적용한 뒤에 배경 세 값만 덮어쓴다.
     // 이 effect가 팔레트를 다시 칠하므로 순서상 여기서 덮어야 남는다.
-    const root = document.documentElement;
     if (pageBg) {
       root.style.setProperty('--bg-g1', pageBg.g1);
       root.style.setProperty('--bg-g2', pageBg.g2);
       root.style.setProperty('--bg-angle', `${pageBg.angle}deg`);
       root.style.setProperty('--bg-image', 'none');   // 사이트 배경 이미지가 덮지 않게
     }
-  }, [draft, pageColor, pageBg, loaded]);
+  }, [draft, pageColor, pageBg, loaded, scheme]);
 
   // 배경 이미지 (v1.9) — IndexedDB 파일을 blob URL로 풀어 --bg-image 적용 (그라데이션 모드면 해제)
   useEffect(() => {
@@ -242,6 +288,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     <Ctx.Provider value={{
       state, dirty, setMode, setPointAccent, setPointTone, setVar,
       resetMode, save, discard, presets, savePreset, applyPreset, removePreset, setPageTheme, setPageBg,
+      scheme, toggleScheme,
     }}>
       {children}
     </Ctx.Provider>

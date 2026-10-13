@@ -15,11 +15,27 @@ import { useBlobUrl } from '@/lib/blobStore';
 import { refreshPage } from '@/lib/pageRefresh';
 import { useToast } from '@/components/ui/Toast';
 import { KToggle } from '@/components/ui/Kit';
+import { useTheme } from '@/lib/ThemeProvider';
 import {
   Notif, NotifType, NOTIF_EVENT, NOTIF_TYPE_LABEL,
   readNotifs, markRead, markAllRead, clearReadNotifs, notifSettings, setNotifSetting, syncNotifs, selfTestNotif,
 } from '@/lib/notifStore';
 import { subscribeTable } from '@/lib/db';
+
+/* UFO 스킨 — 로고 옆 작은 장식. 라이트는 UFO, 다크는 외계인 (skin.css가 data-scheme으로 하나만 보인다) */
+const BrandIcon = () => (
+  <span className="brand-ico" aria-hidden>
+    <svg className="ufo" viewBox="0 0 24 24"><path d="M8 11a4 4 0 0 1 8 0" /><ellipse cx="12" cy="12.5" rx="9" ry="2.6" /><path d="M9 16.5 7.5 20M15 16.5l1.5 3.5" /></svg>
+    <svg className="alien" viewBox="0 0 24 24"><path d="M9 6 7 3M15 6l2-3" /><path d="M12 5c-4.4 0-7 2.8-7 6.2 0 4 3.6 7.4 7 8.8 3.4-1.4 7-4.8 7-8.8C19 7.8 16.4 5 12 5z" /><path d="M8.6 11.2c1.2.2 2 1 2.2 2.3M15.4 11.2c-1.2.2-2 1-2.2 2.3" /></svg>
+  </span>
+);
+
+const MoonIcon = () => (
+  <svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg>
+);
+const SunIcon = () => (
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v1.5M12 20v1.5M5.3 5.3l1 1M17.7 17.7l1 1M2.5 12H4M20 12h1.5M5.3 18.7l1-1M17.7 6.3l1-1" /></svg>
+);
 
 const BellIcon = () => (
   <svg viewBox="0 0 24 24">
@@ -48,6 +64,7 @@ export function TopBar() {
   const [site, , siteLoaded] = useSiteSettings();    // 로고 텍스트/서브/정렬 (5.2)
   const avatarSrc = useBlobUrl(user?.avatarUrl);     // 프로필 이미지 (마이페이지, v1.9)
   const userRef = useRef<HTMLDivElement>(null);
+  const { scheme, toggleScheme } = useTheme();       // 방문자 라이트/다크 (UFO 스킨)
 
   useEffect(() => {
     if (!menuOpen && !notifOpen) return;
@@ -117,7 +134,8 @@ export function TopBar() {
     const compute = () => {
       const avail = gnbEl.clientWidth;
       const kids = Array.from(mEl.children) as HTMLElement[];
-      if (avail <= 0) {                            // gnb 숨김(모바일)·미표시 상태 — 측정 불가 시 전체 표시
+      // 세로 사이드바·가로 스크롤 줄(UFO 스킨)은 넘침이 없다 — 스킨 CSS가 --gnb-all:1로 알린다
+      if (avail <= 0 || getComputedStyle(gnbEl).getPropertyValue('--gnb-all').trim() === '1') { // gnb 숨김(모바일)·미표시 상태 — 측정 불가 시 전체 표시
         setVisCount(kids.length - 1);
         return;
       }
@@ -149,7 +167,7 @@ export function TopBar() {
     <header className="topbar">
       {/* 로고 — 텍스트·서브타이틀·정렬은 환경설정 > 디자인 (5.2) */}
       <div className="brand" onClick={() => nav('/')}>
-        {siteLoaded && site.title}
+        {siteLoaded && <span className="brand-row"><BrandIcon />{site.title}</span>}
         {siteLoaded && site.subtitle && <small className={`al-${site.align}`}>{site.subtitle}</small>}
       </div>
 
@@ -211,6 +229,15 @@ export function TopBar() {
         </div>
       </nav>
 
+      {/* 도구 줄 (UFO 스킨) — 사이드바에서는 로고 아래 한 줄로 모인다 */}
+      <div className="side-tools">
+      {/* 라이트/다크 전환 — 방문자 각자 (커스텀 테마면 관리자 색 그대로라 숨김) */}
+      {scheme && (
+        <button className="btn-scheme" onClick={toggleScheme}
+          aria-label={scheme === 'dark' ? '라이트 모드로' : '다크 모드로'} data-tip={scheme === 'dark' ? '라이트 모드' : '다크 모드'}>
+          {scheme === 'dark' ? <SunIcon /> : <MoonIcon />}
+        </button>
+      )}
       {/* 위젯 추가 — 그리드 토글 왼쪽 (v1.9 사용자 확정: 본문 하단 버튼 대체) */}
       {editOn && pathname === '/' && (
         <button className="btn btn-ghost" style={{ height: 27, padding: '0 11px', fontSize: 10.5, whiteSpace: 'nowrap' }}
@@ -302,6 +329,7 @@ export function TopBar() {
       ) : (
         <button className="login-link" onClick={() => nav('/login')}>로그인</button>
       )}
+      </div>
     </header>
   );
 }

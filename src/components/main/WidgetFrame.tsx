@@ -161,6 +161,7 @@ export function WidgetFrame({ conf, mobileOrder, children, className, style, onC
     <div
       ref={ref}
       data-wid={conf.id}
+      data-wtype={conf.type}   /* UFO 스킨 — 메인을 위젯 종류별 자리로 배치 (저장 좌표는 편집모드에서만 쓴다) */
       className={`wgt ${useSize && conf.w != null ? 'sized' : ''} ${conf.mOff ? 'wgt-hide-m' : ''} ${className ?? ''}`}
       style={{
         ...style,
