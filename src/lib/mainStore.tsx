@@ -67,6 +67,11 @@ export function widgetLabel(widgets: WidgetConf[], w: WidgetConf): string {
   return same.length > 1 ? `${t} ${same.findIndex(x => x.id === w.id) + 1}` : t;
 }
 
+/** 메인 캔버스 안쪽 폭 (UFO 스킨 v2.0) — 본문 기둥(다른 페이지와 같은 폭) 안에 들어가는 크기.
+ *  편집모드에서 위젯은 이 폭 밖으로 못 나간다(WidgetFrame). 예전 캔버스는 1120이었다.
+ *  skin.css의 .page-main-wrap 폭(안쪽 + 양옆 30)과 같이 바꿔야 한다 */
+export const MAIN_CANVAS_INNER = 920;
+
 // 기본 배치는 절대 좌표로 못 박음 (v1.9 사용자 피드백) — 예전에는 흐름 렌더를 측정해 스냅샷했는데
 // 측정값이 위젯 최소 높이에 걸리면서 D-DAY·TO-DO가 간격 0으로 붙어버렸다. 세로 간격은 전부 10px.
 const DEFAULT_STATE: MainState = {
@@ -74,15 +79,16 @@ const DEFAULT_STATE: MainState = {
   widgets: [
     // 배포 기본 — 더미 콘텐츠 없이 빈 위젯으로 시작 (v1.9)
     // 메뉴리스트는 모바일 전용(PC 숨김)이라 좌표는 의미 없음
-    { id: 'menu', type: 'menu', col: 1, enabled: true, tx: 0, ty: 0, ax: 0, ay: 0, w: 230, h: 80, settings: {} },
-    { id: 'memo', type: 'memo', col: 1, enabled: true, tx: 0, ty: 0, ax: 0, ay: 0, w: 230, h: 80, settings: { text: '' } },
-    { id: 'banner', type: 'banner', col: 2, enabled: true, tx: 0, ty: 0, ax: 240, ay: 0, w: 610, h: 210, settings: {} },
-    { id: 'diary', type: 'diary', col: 2, enabled: true, tx: 0, ty: 0, ax: 240, ay: 220, w: 300, h: 150, settings: {} },
-    { id: 'latest', type: 'latest', col: 2, enabled: true, tx: 0, ty: 0, ax: 550, ay: 220, w: 300, h: 150, settings: {} },
+    // 캔버스 920 기준 (v2.0) — 왼쪽 0~220 · 가운데 230~650 · 오른쪽 660~920
+    { id: 'menu', type: 'menu', col: 1, enabled: true, tx: 0, ty: 0, ax: 0, ay: 0, w: 220, h: 80, settings: {} },
+    { id: 'memo', type: 'memo', col: 1, enabled: true, tx: 0, ty: 0, ax: 0, ay: 0, w: 220, h: 80, settings: { text: '' } },
+    { id: 'banner', type: 'banner', col: 2, enabled: true, tx: 0, ty: 0, ax: 230, ay: 0, w: 420, h: 210, settings: {} },
+    { id: 'diary', type: 'diary', col: 2, enabled: true, tx: 0, ty: 0, ax: 230, ay: 220, w: 205, h: 150, settings: {} },
+    { id: 'latest', type: 'latest', col: 2, enabled: true, tx: 0, ty: 0, ax: 445, ay: 220, w: 205, h: 150, settings: {} },
     // 회원정보창은 로그인 상태 내용(프로필+버튼)에 딱 맞는 높이 — 더 키우면 아래가 비어 보임 (v1.9 사용자 확정)
-    { id: 'member', type: 'member', col: 3, enabled: true, tx: 0, ty: 0, ax: 860, ay: 0, w: 260, h: 150, settings: {} },
-    { id: 'dday', type: 'dday', col: 3, enabled: true, tx: 0, ty: 0, ax: 860, ay: 160, w: 260, h: 90, settings: { items: [] } },
-    { id: 'todo', type: 'todo', col: 3, enabled: true, tx: 0, ty: 0, ax: 860, ay: 260, w: 260, h: 90, settings: { items: [] } },
+    { id: 'member', type: 'member', col: 3, enabled: true, tx: 0, ty: 0, ax: 660, ay: 0, w: 260, h: 150, settings: {} },
+    { id: 'dday', type: 'dday', col: 3, enabled: true, tx: 0, ty: 0, ax: 660, ay: 160, w: 260, h: 90, settings: { items: [] } },
+    { id: 'todo', type: 'todo', col: 3, enabled: true, tx: 0, ty: 0, ax: 660, ay: 260, w: 260, h: 90, settings: { items: [] } },
     // UPCOMING은 기본 구성에서 제외 — 필요하면 [＋ 위젯]으로 추가 (v1.9: 켬/끔 대신 추가/삭제 모델)
   ],
   // 회원정보창 맨 앞 · 배너 맨 뒤 — 고정 요소이던 때의 모바일 자리 그대로 (v2.0)
@@ -233,7 +239,7 @@ export function MainStoreProvider({ children }: { children: React.ReactNode }) {
       // 중복 추가 방지 (v1.9) — 이미지·자유 텍스트 외에는 종류당 하나만 (UI에서도 막지만 안전장치)
       if (!MULTI_TYPES.includes(type) && s.widgets.some(w => w.type === type)) return s;
       // 절대배치 기본 좌표 (v1.9) — 선택한 열 상단 근처, 기존 위젯들 아래
-      const colX = { 1: 0, 2: 240, 3: 880 } as const;
+      const colX = { 1: 0, 2: 230, 3: 660 } as const;   // 캔버스 920 기준 (v2.0)
       const maxY = Math.max(60, ...s.widgets.filter(w => w.enabled && w.col === col && w.ay != null)
         .map(w => (w.ay ?? 0) + (w.h ?? 200) + 10));
       const w: WidgetConf = {

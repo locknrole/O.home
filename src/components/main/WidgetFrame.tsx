@@ -2,7 +2,11 @@
 // 위젯 프레임 (4.0 편집모드) — 드래그 이동 · 우하단 리사이즈 · 우클릭 겹침 순서 · 클릭 차단
 // 프로토타입의 편집 모델을 계승: 그리드 배치는 유지하고 transform 오프셋 + 크기 동결(px)로 조작
 import React, { useEffect, useRef, useState } from 'react';
-import { WidgetConf, useMainStore } from '@/lib/mainStore';
+import { WidgetConf, useMainStore, MAIN_CANVAS_INNER } from '@/lib/mainStore';
+
+/** 캔버스 밖으로 못 나가게 (v2.0 사용자 요청) — 왼쪽·위는 0, 오른쪽은 캔버스 폭에서 위젯 폭을 뺀 자리까지 */
+const clampX = (x: number, w: number) => Math.max(0, Math.min(x, MAIN_CANVAS_INNER - w));
+const clampY = (y: number) => Math.max(0, y);
 import { ConfirmModal } from '@/components/ui/Modal';
 
 export function WidgetFrame({ conf, mobileOrder, children, className, style, onCtx }: {
@@ -64,14 +68,14 @@ export function WidgetFrame({ conf, mobileOrder, children, className, style, onC
           centered = true;
           const cx = (canvasW - myW()) / 2;
           updateWidget(conf.id, {
-            ax: snap ? Math.round(cx / 10) * 10 : Math.round(cx),
-            ay: snap ? Math.round(ny / 10) * 10 : ny,
+            ax: clampX(snap ? Math.round(cx / 10) * 10 : Math.round(cx), myW()),
+            ay: clampY(snap ? Math.round(ny / 10) * 10 : ny),
           });
           return;
         }
         centered = false;
-        if (snap) updateWidget(conf.id, { ax: Math.round(nx / 10) * 10, ay: Math.round(ny / 10) * 10 });
-        else updateWidget(conf.id, { ax: nx, ay: ny });
+        if (snap) updateWidget(conf.id, { ax: clampX(Math.round(nx / 10) * 10, myW()), ay: clampY(Math.round(ny / 10) * 10) });
+        else updateWidget(conf.id, { ax: clampX(nx, myW()), ay: clampY(ny) });
       };
       const up = () => {
         document.body.classList.remove('drag-move');
@@ -150,6 +154,8 @@ export function WidgetFrame({ conf, mobileOrder, children, className, style, onC
         w = Math.round((absL + w) / 10) * 10 - absL;
         h = Math.round((absT + h) / 10) * 10 - absT;
       }
+      // 오른쪽 끝은 캔버스까지만 (절대배치일 때 — 왼쪽 위치는 그대로라 폭만 줄인다)
+      if (abs) w = Math.min(w, MAIN_CANVAS_INNER - absL);
       updateWidget(conf.id, { w: Math.max(160, w), h: Math.max(80, h) });
     };
     const up = () => { document.body.classList.remove('drag-rs'); window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
@@ -170,7 +176,9 @@ export function WidgetFrame({ conf, mobileOrder, children, className, style, onC
         // 기울기(rot)는 transform에 합성 — 모바일 스택에서는 CSS가 해제 (v1.9)
         ...(abs
           ? {
-            position: 'absolute' as const, left: conf.ax, top: conf.ay, margin: 0,
+            // 예전(더 넓은 캔버스)에 놓았거나 밖으로 삐져나간 위젯도 캔버스 안에 붙여 보여 준다 — 저장값은 옮길 때 고쳐진다
+            position: 'absolute' as const,
+            left: clampX(conf.ax!, Math.min(conf.w ?? 0, MAIN_CANVAS_INNER)), top: clampY(conf.ay!), margin: 0,
             transform: conf.rot ? `rotate(${conf.rot}deg)` : undefined,
           }
           : {
@@ -179,7 +187,7 @@ export function WidgetFrame({ conf, mobileOrder, children, className, style, onC
               conf.rot ? `rotate(${conf.rot}deg)` : '',
             ].join(' ').trim() || undefined,
           }),
-        width: useSize && conf.w != null ? conf.w : undefined,
+        width: useSize && conf.w != null ? (abs ? Math.min(conf.w, MAIN_CANVAS_INNER) : conf.w) : undefined,
         height: useSize && conf.h != null ? conf.h : undefined,
         zIndex: conf.z,
       }}

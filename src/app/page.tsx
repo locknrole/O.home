@@ -1,7 +1,7 @@
 'use client';
 // 메인 페이지 (4.0 위젯 시스템) — 자유 배치 위젯 + 편집모드 (배너·회원정보창도 일반 위젯, v2.0)
 import React, { useEffect, useState } from 'react';
-import { useMainStore, WidgetConf, WidgetType, WIDGET_META, MULTI_TYPES, widgetLabel } from '@/lib/mainStore';
+import { useMainStore, WidgetConf, WidgetType, WIDGET_META, MULTI_TYPES, widgetLabel, MAIN_CANVAS_INNER } from '@/lib/mainStore';
 import { WidgetFrame } from '@/components/main/WidgetFrame';
 import { renderWidget } from '@/components/main/widgets';
 import { MemberBox } from '@/components/main/MemberBox';
@@ -11,8 +11,8 @@ import { useToast } from '@/components/ui/Toast';
 
 const ADDABLE: WidgetType[] = ['banner', 'member', 'memo', 'dday', 'todo', 'upcoming', 'freetext', 'deco', 'diary', 'latest', 'apply'];   // banner: 여러 개 추가 (v2.0 사용자 요청)
 /** 내용 설정 모달이 있는 위젯 — 우클릭 「설정」 노출 대상 (v1.9) */
-/** 메인 캔버스 폭 — globals.css의 고정 캔버스(.page-main-wrap 1180px = 안쪽 1120 + 양옆 30)와 같아야 한다 */
-const MAIN_CANVAS_W = 1180;
+/** 메인 캔버스 폭 — 안쪽(MAIN_CANVAS_INNER) + 양옆 여백 30 (skin.css의 .page-main-wrap 980px와 같다) */
+const MAIN_CANVAS_W = MAIN_CANVAS_INNER + 60;
 const EDITABLE: WidgetType[] =['banner', 'memo', 'dday', 'todo', 'freetext', 'deco', 'apply'];
 
 export default function MainPage() {
@@ -117,7 +117,7 @@ export default function MainPage() {
     ? Math.max(400, ...enabled.map(w => (w.ay ?? 0) + (w.h ?? 200))) + 40
     : undefined;
 
-  /* 캔버스 맞춤 (UFO 스킨 — 왼쪽 사이드바가 생기며 본문 폭이 캔버스 1180px보다 좁아질 수 있다).
+  /* 캔버스 맞춤 (UFO 스킨 — 화면이 좁으면 본문 폭이 캔버스보다 좁아질 수 있다).
      좁으면 가로 스크롤 대신 캔버스 전체를 비율대로 줄여 저장한 배치를 그대로 보여 준다.
      편집모드는 좌표를 1:1로 다뤄야 하니 줄이지 않고(좁으면 기존처럼 가로 스크롤), 모바일은 흐름 스택이라 해당 없음 */
   const [fit, setFit] = useState(1);
