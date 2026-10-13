@@ -198,42 +198,14 @@ html:not([data-scheme="custom"]) :is(.char-card,.rel-card,.cm-card,.dt-card):hov
 .panel.widget,.panel.login-box{border-radius:var(--radius)}
 
 /* ==========================================================
-   메인 — 원본처럼 한 기둥 안에 위젯을 종류별 자리로 (PC)
-   저장된 절대 좌표는 편집모드(+ 그리드)에서만 쓴다. 모바일은 원래 흐름 스택 그대로.
+   메인 — 편집모드에서 자유 배치한 좌표 그대로 (PC). 모바일은 원래 흐름 스택.
+   캔버스는 1180px 고정(안쪽 1120 + 양옆 30)이라 본문 기둥을 그만큼 넓히고,
+   그보다 좁은 화면에서는 page.tsx가 캔버스 전체를 비율대로 줄인다(zoom) — 배치는 그대로
    ========================================================== */
-@media (min-width:621px){
-  body:not(.edit-on) .page-main-wrap{min-width:0 !important;width:auto !important;margin-left:auto !important;margin-right:auto !important}
-  /* 메인에서만 — 다른 페이지까지 걸면 넓은 화면(환경설정 1060px 최소폭 등)이 스크롤 없이 잘린다 */
-  body:not(.edit-on) #appMain:has(.page-main-wrap){overflow-x:hidden}
-  body:not(.edit-on) .main-grid,
-  body:not(.edit-on) .main-grid.abs{
-    display:grid !important;height:auto !important;
-    grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:stretch;
-  }
-  body:not(.edit-on) .main-grid:not(.abs) > *{display:contents}
-  body:not(.edit-on) .main-grid .wgt{
-    position:static !important;left:auto !important;top:auto !important;
-    width:auto !important;height:auto !important;transform:none !important;margin:0 !important;
-    z-index:auto !important;
-  }
-  body:not(.edit-on) .main-grid .wgt > *:first-child{height:100%;margin-bottom:0}
-  /* 자리 — 넓은 것은 두 칸, 작은 것은 짝지어서. 순서는 종류 기준 (모바일 순서 설정은 모바일에 그대로) */
-  body:not(.edit-on) .main-grid .wgt[data-wtype="banner"]{grid-column:1/-1;order:10 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="banner"] .banner{height:230px}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="member"]{order:20 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="dday"]{order:21 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="latest"]{grid-column:1/-1;order:30 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="diary"]{order:40 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="todo"]{order:41 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="memo"]{grid-column:1/-1;order:50 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="upcoming"]{order:51 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="apply"]{order:60 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="memoboard"]{grid-column:1/-1;order:70 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="freetext"]{grid-column:1/-1;order:80 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="deco"]{order:90 !important}
-  body:not(.edit-on) .main-grid .wgt[data-wtype="deco"]:has(img){aspect-ratio:1}
-  /* LATEST — 두 칸을 다 쓰니 썸네일을 한 줄로 더 */
-  body:not(.edit-on) .main-grid .wgt[data-wtype="latest"] .latest-grid{grid-template-columns:repeat(4,1fr)}
+@media (min-width:861px){
+  #appMain:has(.page-main-wrap){flex-basis:1192px}   /* 1180 + 양옆 선 1px + 스크롤바 자리(scrollbar-gutter:stable) 약 10px */
+  /* 스킨의 페이지 여백(40px)이 메인 캔버스 안쪽 폭(1120)을 줄이지 않게 원래 30px로 */
+  .page.page-main-wrap{padding-left:30px;padding-right:30px}
 }
 .login-box h3{margin-bottom:12px}
 

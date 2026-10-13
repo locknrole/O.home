@@ -11,7 +11,9 @@ import { useToast } from '@/components/ui/Toast';
 
 const ADDABLE: WidgetType[] = ['banner', 'member', 'memo', 'dday', 'todo', 'upcoming', 'freetext', 'deco', 'diary', 'latest', 'apply'];   // banner: 여러 개 추가 (v2.0 사용자 요청)
 /** 내용 설정 모달이 있는 위젯 — 우클릭 「설정」 노출 대상 (v1.9) */
-const EDITABLE: WidgetType[] = ['banner', 'memo', 'dday', 'todo', 'freetext', 'deco', 'apply'];
+/** 메인 캔버스 폭 — globals.css의 고정 캔버스(.page-main-wrap 1180px = 안쪽 1120 + 양옆 30)와 같아야 한다 */
+const MAIN_CANVAS_W = 1180;
+const EDITABLE: WidgetType[] =['banner', 'memo', 'dday', 'todo', 'freetext', 'deco', 'apply'];
 
 export default function MainPage() {
   const { state, editOn, gridOn, updateWidget, addWidget, removeWidget } = useMainStore();
@@ -115,8 +117,27 @@ export default function MainPage() {
     ? Math.max(400, ...enabled.map(w => (w.ay ?? 0) + (w.h ?? 200))) + 40
     : undefined;
 
+  /* 캔버스 맞춤 (UFO 스킨 — 왼쪽 사이드바가 생기며 본문 폭이 캔버스 1180px보다 좁아질 수 있다).
+     좁으면 가로 스크롤 대신 캔버스 전체를 비율대로 줄여 저장한 배치를 그대로 보여 준다.
+     편집모드는 좌표를 1:1로 다뤄야 하니 줄이지 않고(좁으면 기존처럼 가로 스크롤), 모바일은 흐름 스택이라 해당 없음 */
+  const [fit, setFit] = useState(1);
+  useEffect(() => {
+    const host = document.getElementById('appMain');
+    if (!host) return;
+    const calc = () => {
+      const mobile = window.matchMedia('(max-width:620px)').matches;
+      setFit(mobile || editOn ? 1 : Math.min(1, host.clientWidth / MAIN_CANVAS_W));
+    };
+    calc();
+    const ro = new ResizeObserver(calc);
+    ro.observe(host);
+    window.addEventListener('resize', calc);
+    return () => { ro.disconnect(); window.removeEventListener('resize', calc); };
+  }, [editOn]);
+
   return (
-    <section className="page page-main-wrap" onClick={() => setCtx(null)}>
+    <section className="page page-main-wrap" onClick={() => setCtx(null)}
+      style={absMode && fit < 1 ? { zoom: fit } : undefined}>
       <div ref={gridRef} className={`main-grid ${absMode ? 'abs' : ''} ${gridOn ? 'gridlines' : ''}`}
         style={{ marginTop: 12, ...(canvasH ? { height: canvasH } : {}) }}>
         {absMode ? (
