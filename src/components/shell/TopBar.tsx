@@ -16,6 +16,7 @@ import { refreshPage } from '@/lib/pageRefresh';
 import { useToast } from '@/components/ui/Toast';
 import { KToggle } from '@/components/ui/Kit';
 import { useTheme } from '@/lib/ThemeProvider';
+import { playSchemeSwitch } from '@/components/shell/SchemeFx';
 import {
   Notif, NotifType, NOTIF_EVENT, NOTIF_TYPE_LABEL,
   readNotifs, markRead, markAllRead, clearReadNotifs, notifSettings, setNotifSetting, syncNotifs, selfTestNotif,
@@ -233,7 +234,8 @@ export function TopBar() {
       <div className="side-tools">
       {/* 라이트/다크 전환 — 방문자 각자 (커스텀 테마면 관리자 색 그대로라 숨김) */}
       {scheme && (
-        <button className="btn-scheme" onClick={toggleScheme}
+        <button className="btn-scheme"
+          onClick={e => playSchemeSwitch(e.currentTarget.getBoundingClientRect(), toggleScheme)}
           aria-label={scheme === 'dark' ? '라이트 모드로' : '다크 모드로'} data-tip={scheme === 'dark' ? '라이트 모드' : '다크 모드'}>
           {scheme === 'dark' ? <SunIcon /> : <MoonIcon />}
         </button>

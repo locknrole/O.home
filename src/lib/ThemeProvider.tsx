@@ -4,7 +4,7 @@
 // · 포인트 자동은 기준색/톤을 "변경했을 때만" 전체 재파생
 // · 변경은 즉시 미리보기(DOM)되지만 저장은 [SAVE]를 눌러야 확정 — 새로고침 시 저장본으로 복귀
 // TODO(0차→): Supabase 연결 시 site_settings 테이블로 저장 위치 이동
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useCallback } from 'react';
 import {
   ThemeMode, PointTone, ThemeVars, ThemeState, ThemeStore, ThemePreset,
   DARK_THEME, LIGHT_THEME, DEFAULT_THEME_STORE, defaultVarsFor, derivePointTheme, themeToCssVars,
@@ -128,7 +128,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // 드래프트 변경 시 DOM 즉시 반영 (미리보기) — 저장은 save()에서만.
   // 로드 전에는 건드리지 않음 — 첫 페인트의 인라인 FOUC 맵을 기본 다크로 덮어써 깜빡이는 것 방지 (v1.9)
-  useEffect(() => {
+  // layout effect — 명암 전환 연출(SchemeFx)이 flushSync 안에서 바뀐 색을 바로 찍을 수 있게 렌더 직후 동기로 칠한다
+  useLayoutEffect(() => {
     if (!loaded) return;
     /* 캐릭터·자관 테마컬러는 색만 바꾸는 것 — 파생 팔레트가 ThemeVars를 통째로 새로 만들어
        **표시 옵션까지 기본값으로 리셋**되던 것을 사이트 설정에서 이어받는다 (v2.0 사용자 제보 —

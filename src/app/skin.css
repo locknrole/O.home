@@ -246,6 +246,31 @@ html[data-scheme="light"] .main-grid.gridlines{
     repeating-linear-gradient(to bottom,rgba(0,0,0,.05) 0 1px,transparent 1px 10px);
 }
 
+/* ==========================================================
+   라이트/다크 전환 연출 (components/shell/SchemeFx.ts) — UFO가 날아와 빔을 쏘면 새 명암이 번진다
+   ========================================================== */
+.ufo-fx{
+  position:fixed;left:0;top:0;width:72px;height:160px;z-index:5000;pointer-events:none;
+  transform-origin:36px 24px;will-change:transform;
+  view-transition-name:ufo-fx;   /* 화면 스냅샷에 묻히지 않고 위에 떠 있게 */
+  /* 선 그림 단색(color = 테마 포인트색, SchemeFx가 지정) + 같은 색 은은한 빛 */
+  filter:drop-shadow(0 0 5px color-mix(in srgb,currentColor 45%,transparent));
+  transition:color .45s ease;
+}
+.ufo-fx svg{display:block;overflow:visible}
+.ufo-fx .face{fill:var(--bg-g1,transparent)}   /* 얼굴 안은 바탕색 — 뒤의 선이 비치지 않게 */
+.ufo-fx .beam{opacity:0;transform-origin:36px 37px;transform:scaleY(.2);transition:opacity .22s ease,transform .26s cubic-bezier(.3,1.4,.5,1)}
+.ufo-fx.beam-on .beam{opacity:1;transform:none;animation:ufoBeam .5s ease-in-out infinite alternate}
+.ufo-fx .lt{animation:ufoBlink .5s steps(2) infinite}
+.ufo-fx .lt:nth-of-type(2n){animation-delay:.25s}
+@keyframes ufoBeam{to{opacity:.7}}
+@keyframes ufoBlink{50%{opacity:.25}}
+/* 새 명암은 원형으로 번지고(SchemeFx가 clip-path), 옛 화면은 그대로 아래에 깔려 있다 — 기본 크로스페이드 끔 */
+::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
+::view-transition-group(ufo-fx){animation-duration:0s}
+/* 전환하는 순간 transition을 꺼서, 새 화면 스냅샷이 옛 색에서 넘어가는 중간색으로 찍히지 않게 */
+html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *::after{transition:none !important}
+
 @media (prefers-reduced-motion:reduce){
   body::after,.brand-ico{animation:none !important}
 }
