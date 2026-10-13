@@ -74,6 +74,11 @@ html:not([data-scheme="custom"]) body::after{
     border-left:1px solid var(--line);border-right:1px solid var(--line);
   }
   .page{padding-left:40px;padding-right:40px}
+  /* 환경설정 — 컨트롤 정렬 때문에 최소폭이 있는 화면이라 기둥을 넓히고 좌측 탭·여백을 줄여
+     1280px 화면에서도 잘리지 않게. 그보다 좁으면 globals.css의 가로 스크롤이 받는다 */
+  #appMain:has(.settings-layout){flex-basis:1180px}
+  .page:has(.settings-layout){padding-left:16px;padding-right:16px}
+  .settings-layout{grid-template-columns:160px 1fr;min-width:1020px}
 
   /* 로고 */
   .brand{order:0;margin-bottom:22px;white-space:normal}
@@ -198,7 +203,8 @@ html:not([data-scheme="custom"]) :is(.char-card,.rel-card,.cm-card,.dt-card):hov
    ========================================================== */
 @media (min-width:621px){
   body:not(.edit-on) .page-main-wrap{min-width:0 !important;width:auto !important;margin-left:auto !important;margin-right:auto !important}
-  body:not(.edit-on) #appMain{overflow-x:hidden}
+  /* 메인에서만 — 다른 페이지까지 걸면 넓은 화면(환경설정 1060px 최소폭 등)이 스크롤 없이 잘린다 */
+  body:not(.edit-on) #appMain:has(.page-main-wrap){overflow-x:hidden}
   body:not(.edit-on) .main-grid,
   body:not(.edit-on) .main-grid.abs{
     display:grid !important;height:auto !important;
