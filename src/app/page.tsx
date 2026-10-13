@@ -1,5 +1,5 @@
 'use client';
-// 메인 페이지 (4.0 위젯 시스템) — 고정 요소(배너·회원정보창) + 자유 배치 위젯 + 편집모드
+// 메인 페이지 (4.0 위젯 시스템) — 자유 배치 위젯 + 편집모드 (배너·회원정보창도 일반 위젯, v2.0)
 import React, { useEffect, useState } from 'react';
 import { useMainStore, WidgetConf, WidgetType, WIDGET_META, MULTI_TYPES, widgetLabel } from '@/lib/mainStore';
 import { WidgetFrame } from '@/components/main/WidgetFrame';
@@ -9,7 +9,7 @@ import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { KRadio } from '@/components/ui/Kit';
 import { useToast } from '@/components/ui/Toast';
 
-const ADDABLE: WidgetType[] = ['banner', 'memo', 'dday', 'todo', 'upcoming', 'freetext', 'deco', 'diary', 'latest', 'apply'];   // banner: 여러 개 추가 (v2.0 사용자 요청)
+const ADDABLE: WidgetType[] = ['banner', 'member', 'memo', 'dday', 'todo', 'upcoming', 'freetext', 'deco', 'diary', 'latest', 'apply'];   // banner: 여러 개 추가 (v2.0 사용자 요청)
 /** 내용 설정 모달이 있는 위젯 — 우클릭 「설정」 노출 대상 (v1.9) */
 const EDITABLE: WidgetType[] = ['banner', 'memo', 'dday', 'todo', 'freetext', 'deco', 'apply'];
 
@@ -123,7 +123,7 @@ export default function MainPage() {
           /* 절대배치 캔버스 — 위젯 전부 직속, 좌표는 각자 ax/ay */
           enabled.map(w =>
             w.type === 'member'
-              ? <WidgetFrame key={w.id} conf={w} mobileOrder={-1} onCtx={(id, x, y) => setCtx({ id, x, y })}><MemberBox /></WidgetFrame>
+              ? <WidgetFrame key={w.id} conf={w} mobileOrder={mOrder(w.id)} onCtx={(id, x, y) => setCtx({ id, x, y })}><MemberBox /></WidgetFrame>
               : frame(w, w.type === 'menu' ? 'wgt-hide-pc' : undefined))
         ) : (
           <>
@@ -142,7 +142,7 @@ export default function MainPage() {
             <div>
               {byCol(3).map(w =>
                 w.type === 'member'
-                  ? <WidgetFrame key={w.id} conf={w} mobileOrder={-1} onCtx={(id, x, y) => setCtx({ id, x, y })}><MemberBox /></WidgetFrame>
+                  ? <WidgetFrame key={w.id} conf={w} mobileOrder={mOrder(w.id)} onCtx={(id, x, y) => setCtx({ id, x, y })}><MemberBox /></WidgetFrame>
                   : frame(w)
               )}
             </div>
@@ -167,7 +167,7 @@ export default function MainPage() {
             <button onClick={() => { updateWidget(me.id, { freeMove: !me.freeMove }); setCtx(null); }}>
               {me.freeMove ? '그리드 반영' : '그리드 무시'}
             </button>
-            {(EDITABLE.includes(me.type) || !me.fixed) && <div className="sep" />}
+            <div className="sep" />
             {/* 내용 편집 — 편집모드에서도 우클릭으로 설정 모달을 연다 (v1.9 사용자 확정) */}
             {EDITABLE.includes(me.type) && (
               <button onClick={() => {
@@ -175,9 +175,8 @@ export default function MainPage() {
                 setCtx(null);
               }}>설정</button>
             )}
-            {!me.fixed && (
-              <button className="danger" onClick={() => { setDelAsk(me); setCtx(null); }}>위젯 삭제</button>
-            )}
+            {/* 배너·회원정보창도 다른 위젯처럼 지울 수 있다 (v2.0 사용자 요청 — 고정 요소 해제) */}
+            <button className="danger" onClick={() => { setDelAsk(me); setCtx(null); }}>위젯 삭제</button>
           </div>
         );
       })()}

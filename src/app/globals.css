@@ -1463,6 +1463,18 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
 .g-item .info{padding:12px 15px}
 .g-item .info b{font-size:calc(13px*var(--fs,1));display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .g-item .info small{color:var(--faint);font-size:calc(10.5px*var(--fs,1))}
+/* 갤러리 핀터레스트형 (v2.0 사용자 요청) — 자리는 Masonry가 transform으로, 카드 = 이미지만 */
+.masonry{position:relative;transition:height .3s ease}
+.mz-item{position:absolute;left:0;top:0;display:flex;flex-direction:column;cursor:var(--cur-pointer,pointer);
+  opacity:0;transition:opacity .35s ease}
+.mz-item.on{opacity:1}
+.gm-img{position:relative;flex:1;min-height:0;border-radius:var(--radius);overflow:hidden;background:var(--panel-solid);
+  box-shadow:inset 0 0 0 1px var(--line)}
+.gm-img img{width:100%;height:100%;object-fit:cover;transition:transform .45s ease,filter .3s}
+.mz-item:hover .gm-img img{transform:scale(1.03);filter:brightness(.92)}
+.gm-cnt{position:absolute;top:9px;right:9px;z-index:3;min-width:22px;height:20px;padding:0 7px;border-radius:999px;
+  display:grid;place-items:center;font-size:calc(10px*var(--fs,1));font-weight:600;color:#fff;background:rgba(15,17,20,.5);backdrop-filter:blur(6px)}
+.mz-end{height:40px;display:grid;place-items:center;font-size:10px;color:var(--faint);letter-spacing:.2em}
 .list-item{display:flex;gap:14px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);cursor:var(--cur-pointer,pointer);transition:.13s}
 .list-item:last-child{border-bottom:none}
 .list-item:hover{background:#f4f5f7}

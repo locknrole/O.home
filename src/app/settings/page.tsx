@@ -554,10 +554,10 @@ function MainPagePane() {
   const { state, setMobileOff, setMobileOrder, resetMain } = useMainStore();
   const toast = useToast();
   const [resetAsk, setResetAsk] = useState(false);   // 기본 구성 확인 (v1.9)
-  // 모바일 순서 목록: 고정 요소(배너·회원정보창)는 포함되지 않음
+  // 모바일 순서 목록 — 배너·회원정보창도 일반 위젯이라 함께 (v2.0)
   const orderable = state.mobileOrder
     .map(id => state.widgets.find(w => w.id === id))
-    .filter((w): w is NonNullable<typeof w> => !!w && !w.fixed);
+    .filter((w): w is NonNullable<typeof w> => !!w);
 
   return (
     <div className="set-sec">

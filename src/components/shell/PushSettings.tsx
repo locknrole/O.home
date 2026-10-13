@@ -57,7 +57,7 @@ export function PushSettings() {
     if (!on) { setSubs(flip(subs, false)); dropSubsCache(); return; }
     // 다른 종류의 기기 — 이미 등록된 구독이 있어야 켤 수 있다 (권한 창은 그 기기에서만 뜬다)
     if (k !== myKind) {
-      if (!ofKind(k).length) { toast(`${KIND_NAME[k]} 기기에서 정보수정을 열어 체크해 주세요`); return; }
+      if (!ofKind(k).length) { toast(`${KIND_NAME[k]} 기기에서 마이페이지를 열어 체크해 주세요`); return; }
       setSubs(flip(subs, true)); dropSubsCache(); return;
     }
     // 이 기기 — 구독을 만든다 (권한 창)
@@ -214,13 +214,13 @@ export function PushAdminRow() {
   return (
     <>
       <h3 style={{ marginTop: 26 }}>웹푸시</h3>
-      <div className="d">회원이 정보수정에서 켜면 알림이 브라우저 푸시로도 갑니다 — 서버에 개인키(VAPID)가 있어야 보낼 수 있습니다</div>
+      <div className="d">회원이 마이페이지에서 켜면 알림이 브라우저 푸시로도 갑니다 — 서버에 개인키(VAPID)가 있어야 보낼 수 있습니다</div>
       <div className="set-row" style={{ flexWrap: 'wrap' }}>
         <div className="l">
           <b>서버 푸시 키</b>
           <small>
             {server === null ? '확인 중…'
-              : server.enabled ? '등록됨 ✓ — 회원들이 정보수정 → WEB PUSH에서 켤 수 있습니다'
+              : server.enabled ? '등록됨 ✓ — 회원들이 마이페이지 → WEB PUSH에서 켤 수 있습니다'
               : '아직 없음 — 키를 만들어 Vercel 환경변수에 넣으면 됩니다'}
           </small>
         </div>
