@@ -8,7 +8,7 @@ import { useAuth } from './auth';
 import { getRawSetting, setSetting } from './settingStore';
 
 export type WidgetType =
-  | 'banner' | 'member'                 // 고정 요소 (삭제 불가)
+  | 'banner' | 'member'                 // 예전엔 고정 요소(삭제 불가) — v2.0부터 일반 위젯
   | 'menu' | 'memo' | 'diary' | 'latest'
   | 'dday' | 'todo' | 'upcoming' | 'freetext' | 'deco' | 'memoboard'
   | 'apply';   // 'image'는 deco(장식 이미지+링크)로 일원화 (v1.9) · apply = 커미션 신청자 (v2.0)
@@ -18,7 +18,7 @@ export interface WidgetConf {
   type: WidgetType;
   col: 1 | 2 | 3;                       // PC 배치 열
   enabled: boolean;
-  fixed?: boolean;                      // 고정 요소 여부
+  fixed?: boolean;                      // 옛 저장분의 고정 요소 표시 — 로드 때 걷어낸다 (v2.0 사용자 요청: 배너·회원정보창도 삭제 가능)
   // 편집모드 배치값 (그리드 원점 = 첫 위치, v1.8)
   tx: number; ty: number;
   w?: number; h?: number; z?: number;
@@ -41,8 +41,8 @@ interface MainState {
 }
 
 export const WIDGET_META: Record<WidgetType, { title: string; desc: string }> = {
-  banner: { title: '슬라이드 배너', desc: '고정 요소 — 최상단' },
-  member: { title: '회원정보창', desc: '고정 요소 — 로그인/프로필' },
+  banner: { title: '슬라이드 배너', desc: '이미지 슬라이드' },
+  member: { title: '회원정보창', desc: '로그인 · 프로필 요약' },
   menu: { title: '메뉴리스트', desc: '모바일 전용 — PC에서는 상단 메뉴가 대신함' },
   memo: { title: 'MEMO', desc: '관리자 메모 (클릭 시 관리 모달)' },
   diary: { title: 'DIARY', desc: '최근 일기 (무드 아이콘 · 비공개 미노출)' },
@@ -76,16 +76,17 @@ const DEFAULT_STATE: MainState = {
     // 메뉴리스트는 모바일 전용(PC 숨김)이라 좌표는 의미 없음
     { id: 'menu', type: 'menu', col: 1, enabled: true, tx: 0, ty: 0, ax: 0, ay: 0, w: 230, h: 80, settings: {} },
     { id: 'memo', type: 'memo', col: 1, enabled: true, tx: 0, ty: 0, ax: 0, ay: 0, w: 230, h: 80, settings: { text: '' } },
-    { id: 'banner', type: 'banner', col: 2, enabled: true, fixed: true, tx: 0, ty: 0, ax: 240, ay: 0, w: 610, h: 210, settings: {} },
+    { id: 'banner', type: 'banner', col: 2, enabled: true, tx: 0, ty: 0, ax: 240, ay: 0, w: 610, h: 210, settings: {} },
     { id: 'diary', type: 'diary', col: 2, enabled: true, tx: 0, ty: 0, ax: 240, ay: 220, w: 300, h: 150, settings: {} },
     { id: 'latest', type: 'latest', col: 2, enabled: true, tx: 0, ty: 0, ax: 550, ay: 220, w: 300, h: 150, settings: {} },
     // 회원정보창은 로그인 상태 내용(프로필+버튼)에 딱 맞는 높이 — 더 키우면 아래가 비어 보임 (v1.9 사용자 확정)
-    { id: 'member', type: 'member', col: 3, enabled: true, fixed: true, tx: 0, ty: 0, ax: 860, ay: 0, w: 260, h: 150, settings: {} },
+    { id: 'member', type: 'member', col: 3, enabled: true, tx: 0, ty: 0, ax: 860, ay: 0, w: 260, h: 150, settings: {} },
     { id: 'dday', type: 'dday', col: 3, enabled: true, tx: 0, ty: 0, ax: 860, ay: 160, w: 260, h: 90, settings: { items: [] } },
     { id: 'todo', type: 'todo', col: 3, enabled: true, tx: 0, ty: 0, ax: 860, ay: 260, w: 260, h: 90, settings: { items: [] } },
     // UPCOMING은 기본 구성에서 제외 — 필요하면 [＋ 위젯]으로 추가 (v1.9: 켬/끔 대신 추가/삭제 모델)
   ],
-  mobileOrder: ['menu', 'memo', 'diary', 'latest', 'dday', 'todo'],
+  // 회원정보창 맨 앞 · 배너 맨 뒤 — 고정 요소이던 때의 모바일 자리 그대로 (v2.0)
+  mobileOrder: ['member', 'menu', 'memo', 'diary', 'latest', 'dday', 'todo', 'banner'],
 };
 
 const STORAGE_KEY = 'ohome.main.v1';
@@ -141,12 +142,20 @@ export function MainStoreProvider({ children }: { children: React.ReactNode }) {
         for (const w of parsed.widgets) {
           if ((w.type as string) === 'image') continue;
           if (!w.enabled && !w.fixed) { removed.add(w.id); continue; }
-          kept.push(w.enabled ? w : { ...w, enabled: true });
+          // 고정 요소 표시는 걷어낸다 — 배너·회원정보창도 우클릭으로 지울 수 있게 (v2.0 사용자 요청)
+          const { fixed: _fixed, ...rest } = w;
+          void _fixed;
+          kept.push({ ...rest, enabled: true });
         }
         const ids = new Set(kept.map(w => w.id));
         // 삭제한 기본 위젯은 병합으로 되살리지 않음
         const merged = [...kept, ...DEFAULT_STATE.widgets.filter(w => !ids.has(w.id) && !removed.has(w.id))];
-        setState({ ...DEFAULT_STATE, ...parsed, widgets: merged, removedIds: [...removed] });
+        /* 고정 요소는 모바일 순서 목록에 없었다(회원정보창은 늘 맨 앞, 배너는 맨 뒤로 렌더).
+           일반 위젯이 됐으니 목록에 넣어 순서를 고칠 수 있게 — 보이는 자리는 예전 그대로 */
+        let mo = (parsed.mobileOrder ?? DEFAULT_STATE.mobileOrder).filter(id => merged.some(w => w.id === id));
+        if (merged.some(w => w.id === 'member') && !mo.includes('member')) mo = ['member', ...mo];
+        for (const w of merged) if (!mo.includes(w.id)) mo = [...mo, w.id];
+        setState({ ...DEFAULT_STATE, ...parsed, widgets: merged, mobileOrder: mo, removedIds: [...removed] });
       }
     } catch { /* 기본값 사용 */ }
   }, []);
@@ -240,7 +249,7 @@ export function MainStoreProvider({ children }: { children: React.ReactNode }) {
   const removeWidget = useCallback((id: string) => {
     setState(s => ({
       ...s,
-      widgets: s.widgets.filter(w => w.id !== id || w.fixed),
+      widgets: s.widgets.filter(w => w.id !== id),
       mobileOrder: s.mobileOrder.filter(x => x !== id),
       removedIds: [...(s.removedIds ?? []), id],   // 기본 위젯이면 다음 로드의 병합에서도 제외 (v1.9)
     }));

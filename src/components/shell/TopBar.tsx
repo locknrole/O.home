@@ -311,7 +311,7 @@ export function TopBar() {
             )}
           </div>
           <div className={`user-menu ${menuOpen ? 'open' : ''}`}>
-            <button onClick={() => { setMenuOpen(false); nav('/mypage'); }}>정보수정</button>
+            <button onClick={() => { setMenuOpen(false); nav('/mypage'); }}>마이페이지</button>
             {isAdmin && (
               <>
                 {/* 편집모드 항목은 지원 페이지에서만 노출 (편집 중이면 끄기 위해 항상 표시) */}
