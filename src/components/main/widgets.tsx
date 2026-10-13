@@ -510,9 +510,15 @@ export function DecoWidget({ conf }: { conf: WidgetConf }) {
   const wPx = conf.settings.wPx as number | undefined;
   const hPx = conf.settings.hPx as number | undefined;
   const canGo = !editOn && !!cur?.link;
+  /* 모바일 비율 (v2.0 사용자 요청 — 「모바일에서 이미지가 너무 작다」) — 모바일 세로 나열에서는 칸 높이가 없어
+     height:100%가 최소 80px로 쪼그라들었다. 모바일은 너비를 꽉 채우고 PC에서 정한 가로세로 비율로 높이를 낸다
+     (직접 정한 크기가 있으면 그 비율, 없으면 PC 칸 크기, 그것도 없으면 정사각) — globals.css .deco-wgt 모바일 규칙 */
+  const arW = wPx ?? conf.w, arH = hPx ?? conf.h;
+  const mobileAr = arW && arH ? `${arW} / ${arH}` : '1 / 1';
   return (
     <div className="deco-wgt"
       style={{
+        ['--deco-ar' as string]: mobileAr,
         position: 'relative', overflow: 'hidden',
         width: wPx ? `${wPx}px` : '100%', maxWidth: '100%',
         height: hPx ? `${hPx}px` : '100%', minHeight: hPx ? undefined : 80,
