@@ -1,22 +1,20 @@
 'use client';
 // 메인 위젯 렌더러 (4.0) — DIARY/LATEST/UPCOMING 등은 해당 기능(2·3차) 전까지 데모 데이터
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { WidgetConf, useMainStore, WIDGET_META, decoSlides } from '@/lib/mainStore';
 import { useAuth } from '@/lib/auth';
 import { boardEntries, useMenuSettings, buildMenu, canViewHref } from '@/lib/menuStore';
 import { sectionHref, MAIN_SEC, useSections, sectionMenuEntries } from '@/lib/sectionStore';
 import { useCustomLinks, linkEntries } from '@/lib/linkStore';
-import { useBoards, boardHref, MAIN_BOARD_ID } from '@/lib/boardStore';
+import { useBoards } from '@/lib/boardStore';
 import { Modal } from '@/components/ui/Modal';
 import { KTextarea, KSelect, KStep, KCheck } from '@/components/ui/Kit';
 import { ColorField } from '@/components/ui/ColorField';
 import { useFonts } from '@/lib/fontStore';
 import { BannerEditor, BannerSlide, DEMO_SLIDES, DdayEditor, DecoEditor, TodoEditor, TodoSetItem } from '@/components/main/widgetEditors';
 import { CroppedBlobImg, CropValue } from '@/components/ui/CropEditor';
-import { useLocalList, Post, BOARD_SEED } from '@/lib/postStore';
-import { renderBody } from '@/lib/sanitize';
-import { HtmlBody } from '@/components/ui/HtmlBody';
+import { useLocalList } from '@/lib/postStore';
 import { RoadItem, ROAD_SEED, BackupPost, BACKUP_SEED } from '@/lib/galleryStore';
 import { DiaryPost, DIARY_SEED, Mood, MOOD_SEED, moodTint } from '@/lib/diaryStore';
 import { useSched, eventColor } from '@/lib/schedStore';
@@ -191,48 +189,6 @@ export function DiaryWidget() {
         );
       })}
       {latest.length === 0 && <p className="hint">공개된 일기가 없습니다</p>}
-    </div>
-  );
-}
-
-/* ---------- NOTICE (게시판 최신 공지 본문 — v2.0 사용자 요청) ----------
-   게시판 글쓰기의 「공지로 고정」을 켠 글 중 가장 최근 1건의 **본문**을 그대로 보여 준다.
-   다른 위젯처럼 메뉴에서 비공개로 둔 게시판은 빼고, 비밀 공지는 읽을 수 있는 사람(관리자·작성자)에게만 —
-   게시판 목록의 열람 규칙과 같다. 본문은 상세 페이지와 같은 renderBody → HtmlBody(한 번 더 정화) */
-const NOTICE_FOLD_LABEL = { spoiler: '스포일러 주의', adult: '수위 주의' };
-export function NoticeWidget() {
-  const router = useRouter();
-  const { user, isAdmin } = useAuth();
-  const [posts, , loaded] = useLocalList<Post>('ohome.board.v1', BOARD_SEED);
-  const { boards } = useBoards();
-  const [menuSet] = useMenuSettings();
-  const [open, setOpen] = useState(false);   // 접힌 공지 펼침
-  const viewer = { loggedIn: !!user, isAdmin, id: user?.id };
-  const seeBoards = boards.filter(b => canViewHref(menuSet, boardHref(b.id), viewer)).map(b => b.id);
-  const canRead = (p: Post) => !p.secret || isAdmin || (!!p.authorId && p.authorId === user?.id);
-  const post = posts
-    .filter(p => p.notice && seeBoards.includes(p.boardId ?? MAIN_BOARD_ID) && canRead(p))
-    .sort((a, b) => b.date.localeCompare(a.date))[0];
-  // loaded 이후에만 본문 렌더 (SSR/하이드레이션 불일치 방지 — 상세 페이지와 같은 이유)
-  const html = useMemo(() => (post && loaded ? renderBody(post.mode, post.body) : ''), [post, loaded]);
-  if (seeBoards.length === 0) return null;   // 볼 수 있는 게시판이 없으면 위젯 자체를 띄우지 않는다
-  const folded = !!post?.fold && !open;
-  return (
-    <div className="panel widget notice-widget" style={{ margin: 0 }}>
-      <h4>NOTICE {post && <span className="more" onClick={() => router.push(`/board/${post.id}`)}>원문 ›</span>}</h4>
-      {post ? (
-        <div className={`veil ${folded ? '' : 'open'}`}>
-          {folded && (
-            <div className="cover" onClick={() => setOpen(true)} style={{ position: 'absolute' }}>
-              <div>
-                <b>{post.fold!.type === 'custom' ? (post.fold!.label || '접힌 글') : NOTICE_FOLD_LABEL[post.fold!.type]}</b>
-                <span style={{ display: 'block' }}>클릭하면 내용이 표시됩니다</span>
-              </div>
-            </div>
-          )}
-          <HtmlBody className="post-body" html={html} style={folded ? { minHeight: 120, filter: 'blur(6px)' } : undefined} />
-        </div>
-      ) : <p className="hint">공지가 없습니다</p>}
     </div>
   );
 }
@@ -710,7 +666,6 @@ export function renderWidget(conf: WidgetConf) {
     case 'deco': return <DecoWidget conf={conf} />;
     case 'memoboard': return <MemoBoardWidget />;
     case 'apply': return <ApplyWidget conf={conf} />;
-    case 'notice': return <NoticeWidget />;
     default: return <div className="panel widget"><h4>{WIDGET_META[conf.type]?.title ?? conf.type}</h4></div>;
   }
 }
