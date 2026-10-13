@@ -1,7 +1,8 @@
 'use client';
 // EditableDesc 주입
 // 그림백업게시판 (4.11) — 갤러리/리스트 토글 · 로그/단일 뱃지 · 접기 썸네일 블러
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
+import { Masonry } from '@/components/ui/Masonry';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useSectionParam, filterSection, sectionSetter, secQuery } from '@/lib/sectionStore';
@@ -17,6 +18,48 @@ import { useCardSort, mergeOrder } from '@/lib/cardSort';
 import { useMenuSettings, canGalleryWrite } from '@/lib/menuStore';
 
 const FOLD_LABEL = { spoiler: '스포일러', adult: '수위 주의' };
+/** 갤러리 무한 스크롤 한 묶음 — 카드는 이미지만 (제목·날짜는 상세에서, v2.0 사용자 요청) */
+const FEED_STEP = 24;
+
+/** 핀터레스트형 카드 — 대표 이미지를 크롭 없이 원래 비율로. 비율은 로드되면 Masonry에 알린다 */
+function GalleryCard({ p, folded, report, onUnveil }: {
+  p: BackupPost; folded: boolean; report: (ratio: number) => void; onUnveil: () => void;
+}) {
+  const url = useBlobUrl(p.images[0]);
+  const reported = useRef(false);
+  const done = (r: number) => { if (!reported.current) { reported.current = true; report(r); } };
+  useEffect(() => {
+    if (!p.images[0]) { done(0.75); return; }   // 이미지 없는 글 — 자리표시 4:3
+    // 끝내 안 불러와지는 이미지가 뒤 카드들을 막지 않게
+    const t = setTimeout(() => done(0.75), 8000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.images[0]]);
+  return (
+    <>
+      <div className={`gm-img ${folded ? 'veil' : ''}`}>
+        {url
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={url} alt={p.title} draggable={false}
+            onLoad={e => done(e.currentTarget.naturalHeight / e.currentTarget.naturalWidth)}
+            onError={() => done(0.75)} />
+          : <div className={`ph ${p.phList[0] ?? 'cool'}`} style={{ width: '100%', height: '100%' }} />}
+        {/* 유형 뱃지(로그/단일 …)는 리스트에서 뺐다 (v2.0 사용자 요청) — 상세에는 그대로 */}
+        {count(p) > 1 && <span className="gm-cnt">{count(p)}</span>}
+        {folded && (
+          <div className="cover" onClick={e => { e.stopPropagation(); onUnveil(); }}>
+            <div>
+              <b>{p.fold!.type === 'custom' ? (p.fold!.label || '접힘') : FOLD_LABEL[p.fold!.type]}</b><br />
+              <span>클릭하여 표시</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+const count = (p: BackupPost) => Math.max(p.images.length, p.phList.length);
 
 function BackupPageInner() {
   const router = useRouter();
@@ -62,9 +105,25 @@ function BackupPageInner() {
   // 편집모드 카드 드래그 정렬 (v1.9 — 갤러리 보기)
   const sort = useCardSort(visible, next => setPosts(mergeOrder(posts, next)), editOn && isAdmin);
 
-  /* 게시물이 쌓이면 페이지로 (v2.0 사용자 요청) — 보기에 따라 한 장 분량이 다르다.
-     갤러리 보기는 한 줄에 3개라 12개(4줄), 리스트 보기는 글 목록과 같은 20개. */
-  const PER = view === 'gal' ? 12 : 20;
+  /* 리스트 보기는 페이지로 (v2.0 사용자 요청) — 글 목록과 같은 20개.
+     갤러리 보기는 핀터레스트형 무한 스크롤 — FEED_STEP개씩 이어 붙인다 */
+  const PER = 20;
+  const [feedN, setFeedN] = useState(FEED_STEP);
+  const [feedReady, setFeedReady] = useState(false);
+  const feed = visible.slice(0, feedN);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setFeedN(FEED_STEP); }, [q, view, sec.id]);
+  // 끝 표시가 보이고 지금 묶음이 다 자리를 잡았으면 다음 묶음. 조건이 바뀔 때마다 다시 관찰해서
+  // 이미 보이는 상태(짧은 목록·큰 화면)여도 첫 콜백으로 바로 이어진다
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || view !== 'gal' || !feedReady || feedN >= visible.length) return;
+    const io = new IntersectionObserver(es => {
+      if (es.some(e => e.isIntersecting)) setFeedN(n => n + FEED_STEP);
+    }, { rootMargin: '600px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [view, feedReady, feedN, visible.length]);
   const [page, setPage] = useState(1);
   const pages = Math.max(1, Math.ceil(visible.length / PER));
   const cur = Math.min(page, pages);      // 검색·보기 전환으로 줄면 마지막 장으로 당긴다
@@ -72,7 +131,6 @@ function BackupPageInner() {
   const paged = visible.slice(start, start + PER);
   useEffect(() => { setPage(1); }, [q, view]);   // 검색어·보기를 바꾸면 첫 장부터
 
-  const count = (p: BackupPost) => Math.max(p.images.length, p.phList.length);
   const meta = (p: BackupPost) =>
     `${count(p)}장 · ${fmtDate(p.madeDate ? p.madeDate + 'T00:00:00' : p.date)}`;
 
@@ -98,40 +156,21 @@ function BackupPageInner() {
 
       {/* 갤러리/리스트 모두 렌더해 두고 display로만 전환 (v1.9) —
           전환 때마다 재마운트되며 이미지가 다시 로드·등장하던 깜빡임 제거 */}
-      <div className="g3" style={{ display: view === 'gal' && visible.length > 0 ? undefined : 'none' }}>
-          {paged.map((p, si) => {
-            const i = start + si;   // 정렬은 전체 기준 위치로
-            const folded = p.fold && !unveiled[p.id];
-            return (
-              <div key={p.id} className="panel g-item" {...sort(i)}
-                onClick={() => { if (!folded && !editOn) router.push(`/gallery/${p.id}`); }}
-                onContextMenu={e => onCtx(e, p)}>
-                <div className={`thumb ${folded ? 'veil' : ''}`}>
-                  <div style={{ position: 'absolute', inset: 0 }}>
-                    <CroppedBlobImg fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} />
-                  </div>
-                  {/* 유형 뱃지(로그/단일 …)는 리스트에서 뺐다 (v2.0 사용자 요청) — 상세에는 그대로 */}
-                  {folded && (
-                    <div className="cover" onClick={e => { e.stopPropagation(); setUnveiled(u => ({ ...u, [p.id]: true })); }}>
-                      <div>
-                        <b>{p.fold!.type === 'custom' ? (p.fold!.label || '접힘') : FOLD_LABEL[p.fold!.type]}</b><br />
-                        <span>클릭하여 표시</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="info">
-                  <b>{p.title}</b>
-                  <small>
-                    {meta(p)}
-                    {/* 태그 (v2.0 사용자 요청) */}
-                    {(p.tags ?? []).map(t => <i key={t} className="tag-in">#{t}</i>)}
-                  </small>
-                </div>
-              </div>
-            );
+      {/* 갤러리 보기 = 핀터레스트형 (v2.0 사용자 요청) — 원래 비율 그대로 이어 붙이고, 끝에 닿으면 다음 묶음 */}
+      <div style={{ display: view === 'gal' && visible.length > 0 ? undefined : 'none' }}>
+        <Masonry items={feed} infoH={0} onReadyChange={setFeedReady}
+          itemProps={(p, i) => ({
+            ...sort(i),
+            onClick: () => { if (!(p.fold && !unveiled[p.id]) && !editOn) router.push(`/gallery/${p.id}`); },
+            onContextMenu: (e: React.MouseEvent) => onCtx(e, p),
           })}
-        </div>
+          renderItem={(p, _i, report) => (
+            <GalleryCard p={p} folded={!!p.fold && !unveiled[p.id]} report={report}
+              onUnveil={() => setUnveiled(u => ({ ...u, [p.id]: true }))} />
+          )} />
+        {/* 끝 표시 — 화면에 들어오면 다음 묶음 (앞 묶음이 다 자리 잡은 뒤에만) */}
+        <div ref={sentinelRef} className="mz-end">{feed.length >= visible.length && visible.length > FEED_STEP ? '✦' : ''}</div>
+      </div>
       {/* 게시물이 없으면 컨테이너 자체를 숨김 — 빈 패널이 안내문 위에 카드처럼 남던 버그 (v1.9 사용자 발견) */}
       <div className="panel flush" style={{ display: view === 'list' && visible.length > 0 ? undefined : 'none' }}>
           {paged.map(p => (
@@ -159,7 +198,7 @@ function BackupPageInner() {
           게시물이 없습니다
         </div>
       )}
-      {visible.length > PER && <Pager page={cur} total={pages} onChange={setPage} />}
+      {view === 'list' && visible.length > PER && <Pager page={cur} total={pages} onChange={setPage} />}
 
       {/* 우클릭 메뉴 — 다른 우클릭들과 같은 순서: 메뉴 → 항목 선택 (v2.0) */}
       {ctx && typeof document !== 'undefined' && createPortal(
