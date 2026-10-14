@@ -343,7 +343,7 @@ function TrpgPageInner() {
           ))}
           {counts['none'] > 0 && (
             <div className={`tag ${filter === 'none' ? 'on' : ''}`} onClick={() => setFilter('none')}>
-              단발 <small>{counts['none']}</small>
+              기타 <small>{counts['none']}</small>
             </div>
           )}
           {/* 모바일은 항상 기본형 — 스킨 선택 숨김 (v1.9) */}
