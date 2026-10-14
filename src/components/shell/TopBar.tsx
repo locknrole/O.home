@@ -171,8 +171,9 @@ export function TopBar() {
       <Suspense fallback={null}><G1Banner /></Suspense>
       {/* 로고 — 텍스트·서브타이틀·정렬은 환경설정 > 디자인 (5.2) */}
       <div className="brand" onClick={() => nav('/')}>
-        {siteLoaded && <span className="brand-row"><BrandIcon />{site.title}</span>}
-        {siteLoaded && site.subtitle && <small className={`al-${site.align}`}>{site.subtitle}</small>}
+        {/* 제목·소제목 숨김은 환경설정 > 디자인 「로고 표시」 (v2.0 사용자 요청) */}
+        {siteLoaded && !site.hideTitle && <span className="brand-row"><BrandIcon />{site.title}</span>}
+        {siteLoaded && !site.hideSubtitle && site.subtitle && <small className={`al-${site.align}`}>{site.subtitle}</small>}
       </div>
 
       <nav className="gnb" ref={gnbRef}>

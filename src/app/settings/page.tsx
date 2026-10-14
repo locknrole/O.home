@@ -337,6 +337,9 @@ function DesignPane() {
         </div>
       </div>
 
+      {/* 로고 표시 (v2.0 사용자 요청) — 사이드바의 제목·소제목을 각각 숨길 수 있다 */}
+      <LogoVisibilityRow />
+
       <div className="set-row">
         <div className="l"><b>상단메뉴</b></div>
         <div className="cp-group">
@@ -1414,6 +1417,20 @@ function FaviconControl() {
         <button className="btn btn-ghost" style={{ height: 35, padding: '0 14px', fontSize: 11 }}
           onClick={() => set({ favicon: undefined })}>REMOVE</button>
       )}
+    </div>
+  );
+}
+
+/** 로고 표시 (v2.0 사용자 요청) — 제목·소제목을 사이드바에서 숨김. 다른 로고 설정과 같은 드래프트/SAVE 흐름 */
+function LogoVisibilityRow() {
+  const { site, set } = useSiteDraft();
+  return (
+    <div className="set-row">
+      <div className="l"><b>로고 표시</b><small>사이드바의 제목·소제목 보이기 — 끄면 숨겨지고, 글자는 탭 제목 등 다른 곳에 그대로 쓰입니다</small></div>
+      <div style={{ display: 'flex', gap: 18, alignItems: 'center' }}>
+        <KToggle label="제목" checked={!site.hideTitle} onChange={v => set({ hideTitle: !v })} />
+        <KToggle label="소제목" checked={!site.hideSubtitle} onChange={v => set({ hideSubtitle: !v })} />
+      </div>
     </div>
   );
 }
