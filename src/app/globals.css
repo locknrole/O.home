@@ -234,6 +234,7 @@ a{color:inherit;text-decoration:none}
 /* 관리자: 설명 편집 힌트 — 좌우반전 연필 + 여백 (v1.8) */
 /* 연필 표시는 실제 편집 가능한 문구(.editable)에만 — 동적 메타 문구에는 표시하지 않음 */
 .admin .page-head p.editable{cursor:text}
+.page-head p.editable.empty{opacity:.4;font-style:italic} /* 비운 설명의 관리자용 자리표시 (v2.0) */
 .admin .page-head p.editable:hover::after{content:"✎";font-size:calc(11px*var(--fs,1));color:#c9cdd4;display:inline-block;margin-left:8px;transform:scaleX(-1)}
 /* 우측 액션(검색·등록·슬롯)은 절대배치 — 높이가 커도 제목·설명 줄 간격을 벌리지 않음
    (커미션처럼 액션이 2단이면 설명 윗여백이 다른 메뉴보다 넓어지던 문제, v1.9 사용자 발견) */
