@@ -1,5 +1,5 @@
 'use client';
-// 일반 게시판 목록 (4.2 / 5.2 다중 게시판) — 말머리 필터 · 검색 · 비밀글 마스킹 · 접기 표시 · 페이지네이션
+// 일반 게시판 목록 (4.2 / 5.2 다중 게시판) — 말머리 필터 · 검색 · 비밀글 마스킹 · 접기 표시 · 페이지네이션 · 우측 자관 필터(v2.0)
 // ?b=<게시판 id> 로 게시판 구분 (없으면 기본 게시판) · 리스트 스킨: 기본형 / 티켓형 (5.2 v1.9)
 import React, { Suspense, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -12,6 +12,7 @@ import {
   useBoardSettings, useBoards, badgeFor, boardBadgeStyle, boardHref, MAIN_BOARD_ID, BoardPerm,
 } from '@/lib/boardStore';
 import { SearchBar, Pager } from '@/components/ui/Kit';
+import { Relation, REL_SEED } from '@/lib/charStore';
 import { CropImg } from '@/components/ui/CropEditor';
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 
@@ -40,16 +41,20 @@ function BoardInner() {
   const [cat, setCat] = useState('전체');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
+  // 자관 필터 (v2.0 사용자 요청 — TRPG 로그와 같은 방식): all | none(단발) | 자관 id
+  const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
+  const [relF, setRelF] = useState('all');
 
   // 게시판 전환 시 필터·페이지 초기화
   const [prevBid, setPrevBid] = useState(bid);
-  if (prevBid !== bid) { setPrevBid(bid); setCat('전체'); setQ(''); setPage(1); }
+  if (prevBid !== bid) { setPrevBid(bid); setCat('전체'); setQ(''); setPage(1); setRelF('all'); }
 
   // 권한 3단계 — mock 단계에선 로그인 전제 (로드뷰 4.10과 동일 규칙)
   const allow = (p: BoardPerm) => (p === 'admin' ? isAdmin : p === 'member' ? !!user : true);
 
   const visible = useMemo(() => {
     let list = posts.filter(p => (p.boardId ?? MAIN_BOARD_ID) === board.id);
+    if (relF !== 'all') list = list.filter(p => (relF === 'none' ? !p.relId : p.relId === relF));
     if (cat === '공지') list = list.filter(p => p.notice);
     else if (cat !== '전체') list = list.filter(p => p.category === cat);
     if (q) {
@@ -63,7 +68,17 @@ function BoardInner() {
     // 공지 상단 고정 + 최신순
     return list.sort((a, b) =>
       (b.notice ? 1 : 0) - (a.notice ? 1 : 0) || b.date.localeCompare(a.date));
-  }, [posts, board.id, cat, q]);
+  }, [posts, board.id, cat, q, relF]);
+
+  // 자관별 글 수 — 이 게시판 안에서 (말머리·검색과 무관하게 전체 기준, TRPG와 같음)
+  const relCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    posts.filter(p => (p.boardId ?? MAIN_BOARD_ID) === board.id)
+      .forEach(p => { const k = p.relId ?? 'none'; m[k] = (m[k] ?? 0) + 1; });
+    return m;
+  }, [posts, board.id]);
+  const boardTotal = Object.values(relCounts).reduce((a, n) => a + n, 0);
+
 
   const totalPages = Math.max(1, Math.ceil(visible.length / PER_PAGE));
   const pageList = visible.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -99,69 +114,90 @@ function BoardInner() {
         </div>
       </div>
 
-      {board.skin === 'ticket' ? (
-        /* 티켓형 스킨 (5.2 v1.9) — 왼쪽 썸네일(본문 첫 이미지) + 절취선 + 오른쪽 글 정보 */
-        <div style={board.fg ? { color: board.fg } : undefined}>
-          {pageList.map(p => {
-            // 대표 이미지(직접 선택 + 크롭) 우선, 없으면 본문 첫 이미지 (v1.9)
-            const thumb = canRead(p) ? (p.thumbSrc ?? firstImage(p.body)) : null;
-            return (
-              <div className="bticket" key={p.id} onClick={() => { if (canRead(p)) router.push(`/board/${p.id}`); }}>
-                <div className="bt-thumb">
-                  {thumb
-                    ? <CropImg src={thumb} crop={p.thumbSrc ? p.thumbCrop : undefined} />
-                    : <div className="bt-ph">{(canRead(p) ? p.title : 'SECRET').slice(0, 1).toUpperCase()}</div>}
-                </div>
-                <div className="bt-body">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {postBadge(p)}
-                    {p.fold && <span style={boardBadgeStyle(boardSet.system[2])}>{boardSet.system[2].label}</span>}
+      {/* 목록 + 오른쪽 자관 필터 (v2.0 사용자 요청 — TRPG 로그와 같은 배치·모양) */}
+      <div className="trpg-layout">
+        <div style={{ minWidth: 0 }}>
+          {board.skin === 'ticket' ? (
+            /* 티켓형 스킨 (5.2 v1.9) — 왼쪽 썸네일(본문 첫 이미지) + 절취선 + 오른쪽 글 정보 */
+            <div style={board.fg ? { color: board.fg } : undefined}>
+              {pageList.map(p => {
+                // 대표 이미지(직접 선택 + 크롭) 우선, 없으면 본문 첫 이미지 (v1.9)
+                const thumb = canRead(p) ? (p.thumbSrc ?? firstImage(p.body)) : null;
+                return (
+                  <div className="bticket" key={p.id} onClick={() => { if (canRead(p)) router.push(`/board/${p.id}`); }}>
+                    <div className="bt-thumb">
+                      {thumb
+                        ? <CropImg src={thumb} crop={p.thumbSrc ? p.thumbCrop : undefined} />
+                        : <div className="bt-ph">{(canRead(p) ? p.title : 'SECRET').slice(0, 1).toUpperCase()}</div>}
+                    </div>
+                    <div className="bt-body">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {postBadge(p)}
+                        {p.fold && <span style={boardBadgeStyle(boardSet.system[2])}>{boardSet.system[2].label}</span>}
+                      </div>
+                      <div className="bt-title">
+                        {canRead(p) ? <>{p.secret && '🔒 '}{p.title}</> : '🔒 비밀글입니다'}
+                        {canRead(p) && cmtCount(p) > 0 && <span className="cmt">{cmtCount(p)}</span>}
+                      </div>
+                      <div className="bt-meta">{p.author} · {fmtDate(p.date)}</div>
+                    </div>
                   </div>
-                  <div className="bt-title">
-                    {canRead(p) ? <>{p.secret && '🔒 '}{p.title}</> : '🔒 비밀글입니다'}
-                    {canRead(p) && cmtCount(p) > 0 && <span className="cmt">{cmtCount(p)}</span>}
+                );
+              })}
+              {pageList.length === 0 && (
+                <div className="panel" style={{ padding: 36, textAlign: 'center', fontSize: 12.5, color: 'var(--faint)' }}>게시글이 없습니다</div>
+              )}
+            </div>
+          ) : (
+            /* 기본형 스킨 — 리스트 행 (글씨색은 게시판 관리에서 지정 가능, v1.9) */
+            <div className="panel board-list flush" style={board.fg ? { color: board.fg } : undefined}>
+              {pageList.map(p => (
+                <div className="brow" key={p.id} onClick={() => { if (canRead(p)) router.push(`/board/${p.id}`); }}>
+                  <span className="cat">{postBadge(p)}</span>
+                  {/* 제목 칸 안에서 태그를 오른쪽 끝(=작성자 바로 왼쪽)에 정렬 (v2.0 사용자 요청) —
+                      칸을 따로 만들면 행마다 그리드가 독립이라 작성자 열이 태그 길이만큼 어긋난다 */}
+                  <div className="tcell">
+                    {canRead(p) ? (
+                      <b>
+                        {p.secret && '🔒 '}{p.title}
+                        {cmtCount(p) > 0 && <span className="cmt">{cmtCount(p)}</span>}
+                        {p.fold && <span style={{ ...boardBadgeStyle(boardSet.system[2]), marginLeft: 6 }}>{boardSet.system[2].label}</span>}
+                      </b>
+                    ) : (
+                      <b style={{ color: 'var(--faint)' }}>🔒 비밀글입니다</b>
+                    )}
+                    {canRead(p) && (p.tags ?? []).length > 0 && (
+                      <span className="tags">{(p.tags ?? []).map(t => <i key={t}>#{t}</i>)}</span>
+                    )}
                   </div>
-                  <div className="bt-meta">{p.author} · {fmtDate(p.date)}</div>
+                  <span className="who">{p.author}</span>
+                  <span className="dt">{fmtDate(p.date)}</span>
                 </div>
-              </div>
-            );
-          })}
-          {pageList.length === 0 && (
-            <div className="panel" style={{ padding: 36, textAlign: 'center', fontSize: 12.5, color: 'var(--faint)' }}>게시글이 없습니다</div>
+              ))}
+              {pageList.length === 0 && (
+                <div style={{ padding: 36, textAlign: 'center', fontSize: 12.5, color: 'var(--faint)' }}>게시글이 없습니다</div>
+              )}
+            </div>
           )}
+          <Pager page={page} total={totalPages} onChange={setPage} />
         </div>
-      ) : (
-        /* 기본형 스킨 — 리스트 행 (글씨색은 게시판 관리에서 지정 가능, v1.9) */
-        <div className="panel board-list flush" style={board.fg ? { color: board.fg } : undefined}>
-          {pageList.map(p => (
-            <div className="brow" key={p.id} onClick={() => { if (canRead(p)) router.push(`/board/${p.id}`); }}>
-              <span className="cat">{postBadge(p)}</span>
-              {/* 제목 칸 안에서 태그를 오른쪽 끝(=작성자 바로 왼쪽)에 정렬 (v2.0 사용자 요청) —
-                  칸을 따로 만들면 행마다 그리드가 독립이라 작성자 열이 태그 길이만큼 어긋난다 */}
-              <div className="tcell">
-                {canRead(p) ? (
-                  <b>
-                    {p.secret && '🔒 '}{p.title}
-                    {cmtCount(p) > 0 && <span className="cmt">{cmtCount(p)}</span>}
-                    {p.fold && <span style={{ ...boardBadgeStyle(boardSet.system[2]), marginLeft: 6 }}>{boardSet.system[2].label}</span>}
-                  </b>
-                ) : (
-                  <b style={{ color: 'var(--faint)' }}>🔒 비밀글입니다</b>
-                )}
-                {canRead(p) && (p.tags ?? []).length > 0 && (
-                  <span className="tags">{(p.tags ?? []).map(t => <i key={t}>#{t}</i>)}</span>
-                )}
-              </div>
-              <span className="who">{p.author}</span>
-              <span className="dt">{fmtDate(p.date)}</span>
+        <div className="panel tagside">
+          <h4>자관 필터</h4>
+          <div className={`tag ${relF === 'all' ? 'on' : ''}`} onClick={() => { setRelF('all'); setPage(1); }}>
+            전체 <small>{boardTotal}</small>
+          </div>
+          {rels.filter(r => relCounts[r.id]).map(r => (
+            <div key={r.id} className={`tag ${relF === r.id ? 'on' : ''}`} onClick={() => { setRelF(r.id); setPage(1); }}>
+              {r.name} <small>{relCounts[r.id]}</small>
             </div>
           ))}
-          {pageList.length === 0 && (
-            <div style={{ padding: 36, textAlign: 'center', fontSize: 12.5, color: 'var(--faint)' }}>게시글이 없습니다</div>
+          {relCounts['none'] > 0 && (
+            <div className={`tag ${relF === 'none' ? 'on' : ''}`} onClick={() => { setRelF('none'); setPage(1); }}>
+              단발 <small>{relCounts['none']}</small>
+            </div>
           )}
         </div>
-      )}
-      <Pager page={page} total={totalPages} onChange={setPage} />
+      </div>
     </section>
   );
 }
