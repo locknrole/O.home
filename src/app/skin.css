@@ -126,6 +126,16 @@ html:not([data-scheme="custom"]) body::after{
   .gnb button:hover::before,.gnb button.on::before{opacity:1;transform:none}
 }
 
+/* ---------- 사이드바 상단 G1 배너 (components/shell/G1Banner.tsx) ----------
+   필름 액자 장면(256×76 비율)만 — 장면 이름·진행 점은 없앴다. 사이드바 안쪽 여백을 조금 넘겨 넓게 쓴다. 좁은 화면(상단 바)에서는 숨김 */
+.g1-banner{display:none}
+@media (min-width:861px){
+  .g1-banner{display:block;order:-1;margin:-10px -10px 22px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+}
+.g1-frame{position:relative;aspect-ratio:256/76;border-radius:4px;overflow:hidden;background:#3a2c14}
+html[data-scheme="dark"] .g1-frame{background:#1b3327}   /* 다크 그림의 바탕색 — 그림이 뜨기 전 잠깐 보이는 자리 */
+.g1-frame img{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
+
 /* 로고 공통 */
 .brand{font-family:var(--font-logo,var(--sans));font-size:calc(15px*var(--fs,1));font-weight:700;letter-spacing:-.01em}
 .brand small{font-size:calc(9px*var(--fs,1));color:color-mix(in srgb,var(--top-fg) 55%,transparent)}
