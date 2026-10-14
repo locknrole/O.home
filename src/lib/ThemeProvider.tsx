@@ -55,7 +55,7 @@ const PRESET_KEY = 'ohome.themePresets.v1';
 const SCHEME_KEY = 'ohome.scheme.v1';
 const SCHEME_CSS_KEY = 'ohome.schemeCss.v1';
 
-/* 라이트·다크는 고칠 수 없는 프리셋이다 — 세부 수정을 하면 커스텀으로 복사되어 넘어간다(setVar).
+/* 라이트·다크는 고칠 수 없는 프리셋이다 — 스킨에서 고친 값은 perMode가 아니라 skin 덧씌움에 들어간다(setVar).
    그래서 저장본의 perMode.light/dark는 「저장하던 때의 기본값」일 뿐이라, 늘 현재 프리셋을 쓴다
    (안 그러면 스킨을 바꿔도 예전에 저장한 사이트는 예전 색에 머문다) */
 const normalize = (s: Partial<ThemeStore> | null | undefined): ThemeStore => ({
@@ -68,6 +68,25 @@ const normalize = (s: Partial<ThemeStore> | null | undefined): ThemeStore => ({
     custom: { ...DEFAULT_THEME_STORE.perMode.custom, ...(s?.perMode?.custom ?? {}) },
   },
 });
+
+/** 이 저장본이 방문자에게 보이는 명암 — 커스텀이면 null(관리자 색 그대로) */
+const schemeOf = (d: ThemeStore, viewer: Scheme | null): Scheme | null =>
+  d.mode === 'custom' ? null
+    : viewer ?? (d.mode === 'light' ? 'light' : d.mode === 'dark' ? 'dark' : d.pointTone);
+
+/** 스킨 모드에서 실제로 칠하는 값 — 스킨 팔레트 + (포인트 모드면 기준색) + 헤더 표시 옵션 + 디자인 탭 덧씌움.
+ *  화면·환경설정 칸·FOUC 맵·프리셋 저장이 모두 이 값을 쓴다 — 보이는 색과 고치는 색이 어긋나지 않게
+ *  (예전엔 칸에 포인트 모드의 옛 팔레트가 떠 있다가, 하나만 고쳐도 그 옛 팔레트가 커스텀으로 복사돼 색이 통째로 바뀌었다) */
+function skinVars(d: ThemeStore, scheme: Scheme): ThemeVars {
+  const preset = scheme === 'light' ? LIGHT_THEME : DARK_THEME;
+  const site = d.perMode[d.mode];
+  return {
+    ...preset,
+    ...(d.mode === 'point' ? { accent: d.pointAccent, accentSoft: derivePointTheme(d.pointAccent, scheme).accentSoft } : {}),
+    pageHead: site.pageHead, pageHeadM: site.pageHeadM,
+    ...(d.skin?.[scheme] ?? {}),
+  };
+}
 
 function applyToDom(vars: ThemeVars) {
   const css = themeToCssVars(vars);
@@ -85,8 +104,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [viewerScheme, setViewerScheme] = useState<Scheme | null>(null);   // 방문자가 직접 고른 명암 (없으면 사이트 기본)
 
   // 방문자 명암 — 커스텀 모드는 관리자가 손수 정한 색이라 건드리지 않는다
-  const scheme: Scheme | null = draft.mode === 'custom' ? null
-    : viewerScheme ?? (draft.mode === 'light' ? 'light' : draft.mode === 'dark' ? 'dark' : draft.pointTone);
+  const scheme: Scheme | null = schemeOf(draft, viewerScheme);
+  // 지금 보이는 값 (스킨이면 스킨 팔레트 + 덧씌움, 커스텀이면 관리자 값)
+  const shown: ThemeVars = useMemo(() => (scheme ? skinVars(draft, scheme) : draft.perMode[draft.mode]), [draft, scheme]);
   const toggleScheme = useCallback(() => {
     const next: Scheme = scheme === 'dark' ? 'light' : 'dark';
     setViewerScheme(next);
@@ -137,19 +157,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const site = draft.perMode[draft.mode];
     const root = document.documentElement;
     if (scheme) {
-      /* UFO 스킨 — 라이트·다크·포인트 모드는 방문자가 고른 명암의 스킨 팔레트로 칠한다.
-         포인트 모드의 기준색과 캐릭터·자관 테마컬러는 팔레트를 통째로 바꾸지 않고 포인트색만 바꾼다
+      /* UFO 스킨 — 라이트·다크·포인트 모드는 방문자가 고른 명암의 스킨 팔레트(+ 디자인 탭 덧씌움)로 칠한다.
+         캐릭터·자관 테마컬러는 팔레트를 통째로 바꾸지 않고 포인트색만 바꾼다
          (먹색/흰 한 장 바탕이 페이지마다 뒤집히지 않게) */
-      const preset = scheme === 'light' ? LIGHT_THEME : DARK_THEME;
-      const withAccent = (c: string): ThemeVars => ({
-        ...preset, accent: c, accentSoft: derivePointTheme(c, scheme).accentSoft,
-      });
-      const siteVars: ThemeVars = {
-        ...(draft.mode === 'point' ? withAccent(draft.pointAccent) : preset),
-        pageHead: site.pageHead, pageHeadM: site.pageHeadM,
-      };
+      const siteVars = shown;
       applyToDom(pageColor
-        ? { ...withAccent(pageColor.color), pageHead: site.pageHead, pageHeadM: site.pageHeadM }
+        ? { ...siteVars, accent: pageColor.color, accentSoft: derivePointTheme(pageColor.color, scheme).accentSoft }
         : siteVars);
       root.dataset.scheme = scheme;
       try { localStorage.setItem(SCHEME_CSS_KEY, JSON.stringify({ scheme, css: themeToCssVars(siteVars) })); } catch { /* 무시 */ }
@@ -171,12 +184,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.style.setProperty('--bg-angle', `${pageBg.angle}deg`);
       root.style.setProperty('--bg-image', 'none');   // 사이트 배경 이미지가 덮지 않게
     }
-  }, [draft, pageColor, pageBg, loaded, scheme]);
+  }, [draft, pageColor, pageBg, loaded, scheme, shown]);
 
   // 배경 이미지 (v1.9) — IndexedDB 파일을 blob URL로 풀어 --bg-image 적용 (그라데이션 모드면 해제)
   useEffect(() => {
     if (!loaded) return;
-    const vars = draft.perMode[draft.mode];
+    const vars = shown;
     const root = document.documentElement;
     if (vars.bgType === 'image' && vars.bgImageId && !pageColor && !pageBg) {
       const ref = vars.bgImageId;
@@ -204,7 +217,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       };
     }
     root.style.removeProperty('--bg-image');
-  }, [draft, pageColor, pageBg, loaded]);
+  }, [shown, pageColor, pageBg, loaded]);
 
   const dirty = useMemo(() => JSON.stringify(saved) !== JSON.stringify(draft), [saved, draft]);
 
@@ -223,22 +236,26 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       perMode: { ...d.perMode, point: derivePointTheme(d.pointAccent, tone) },
     })), []);
 
-  // 세부 수정 (v1.9 확정) — 프리셋 모드(라이트/다크/포인트)에서 뭐 하나라도 바꾸면
-  // 현재 보이는 값 전체를 커스텀으로 복사하며 커스텀 모드로 전환. 커스텀에서는 그대로 반영.
-  // 저장은 SAVE에서 — 커스텀 값과 mode='custom'이 함께 저장됨.
+  // 세부 수정 — 커스텀 모드는 그 값에 그대로 반영.
+  // 스킨 모드(라이트/다크/포인트)는 커스텀으로 넘기지 않고, 지금 보고 있는 명암의 덧씌움(skin)에 넣는다 (v2.0 —
+  // 예전 방식대로 커스텀으로 복사하면 스킨이 아닌 옛 팔레트가 복사돼 색이 통째로 날아가고 명암 버튼도 사라졌다).
+  // 저장은 SAVE에서.
   const setVar = useCallback(<K extends keyof ThemeVars>(key: K, value: ThemeVars[K]) =>
-    setDraft(d => (d.mode === 'custom'
-      ? { ...d, perMode: { ...d.perMode, custom: { ...d.perMode.custom, [key]: value } } }
-      : {
-        ...d, mode: 'custom',
-        perMode: { ...d.perMode, custom: { ...d.perMode[d.mode], [key]: value } },
-      })), []);
+    setDraft(d => {
+      const sc = schemeOf(d, viewerScheme);
+      if (!sc) return { ...d, perMode: { ...d.perMode, custom: { ...d.perMode.custom, [key]: value } } };
+      return { ...d, skin: { ...d.skin, [sc]: { ...(d.skin?.[sc] ?? {}), [key]: value } } };
+    }), [viewerScheme]);
 
-  // 선택 리셋 — 지정한 모드만 초기값으로 (드래프트, 저장은 SAVE에서)
+  // 선택 리셋 — 지정한 모드만 초기값으로 (드래프트, 저장은 SAVE에서).
+  // 스킨 덧씌움도 함께 비운다: 라이트→라이트 덧씌움, 다크→다크 덧씌움, 포인트→둘 다
   const resetMode = useCallback((m: ThemeMode) =>
     setDraft(d => ({
       ...d,
       perMode: { ...d.perMode, [m]: defaultVarsFor(m, d.pointAccent, d.pointTone) },
+      skin: m === 'custom' ? d.skin
+        : m === 'point' ? {}
+          : { ...d.skin, [m]: undefined },
     })), []);
 
   const save = useCallback(() => {
@@ -246,11 +263,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setSaved(d);
       try {
         setSetting(STORAGE_KEY, d);
-        setSetting(CSS_KEY, themeToCssVars(d.perMode[d.mode])); // FOUC 맵 동기화
+        const sc = schemeOf(d, viewerScheme);
+        setSetting(CSS_KEY, themeToCssVars(sc ? skinVars(d, sc) : d.perMode[d.mode])); // FOUC 맵 동기화 — 보이는 값으로
       } catch { /* quota 등 무시 */ }
       return d;
     });
-  }, []);
+  }, [viewerScheme]);
 
   const discard = useCallback(() => setDraft(saved), [saved]);
 
@@ -261,11 +279,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
   const savePreset = useCallback((name: string) => {
     setDraft(d => {
-      persistPresets([...presets, { id: newId(), name, vars: d.perMode[d.mode] }]);
+      const sc = schemeOf(d, viewerScheme);
+      persistPresets([...presets, { id: newId(), name, vars: sc ? skinVars(d, sc) : d.perMode[d.mode] }]);   // 보이는 값으로
       return d;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presets]);
+  }, [presets, viewerScheme]);
   const applyPreset = useCallback((id: string) => {
     const p = presets.find(x => x.id === id);
     if (!p) return;
@@ -280,10 +299,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setPageColor(color ? { color, tone } : null), []);
   const setPageBg = useCallback((bg: PageBg | null) => setPageBgState(bg), []);
 
-  // 기존 소비자 호환 — state.vars = 현재 모드의 드래프트 값
+  // 기존 소비자 호환 — state.vars = 지금 보이는 값 (환경설정 칸이 화면과 같은 색을 띄우게)
   const state: ThemeState = useMemo(() => ({
-    mode: draft.mode, pointTone: draft.pointTone, vars: draft.perMode[draft.mode],
-  }), [draft]);
+    mode: draft.mode, pointTone: draft.pointTone, vars: shown,
+  }), [draft, shown]);
 
   return (
     <Ctx.Provider value={{

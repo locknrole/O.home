@@ -183,6 +183,9 @@ export interface ThemeStore {
   pointTone: PointTone;
   pointAccent: string;                     // 포인트 자동 기준색 (변경 시에만 재파생)
   perMode: Record<ThemeMode, ThemeVars>;   // 각 모드의 수정본 — 탭을 바꿔도 유지
+  /** UFO 스킨 덧씌움 (v2.0) — 라이트·다크·포인트 모드에서 디자인 탭으로 고친 값. 명암별로 따로 둔다.
+   *  스킨 팔레트(LIGHT_THEME/DARK_THEME) 위에 얹히고, 모드는 커스텀으로 넘어가지 않는다 */
+  skin?: { light?: Partial<ThemeVars>; dark?: Partial<ThemeVars> };
 }
 
 /** 모드별 초기값 (선택 리셋용) */
