@@ -94,10 +94,7 @@ html:not([data-scheme="custom"]) body::after{
     order:2;flex:0 0 auto;flex-direction:column;gap:0;
     --gnb-all:1;   /* TopBar: 넘침(⋯) 계산을 끄고 전부 표시 */
   }
-  .gnb::before{
-    content:"CATEGORY";display:block;padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid var(--line);
-    font-size:calc(9.5px*var(--fs,1));font-weight:600;letter-spacing:.18em;color:color-mix(in srgb,var(--top-fg) 55%,transparent);
-  }
+  /* 메뉴 위 「CATEGORY」 머리글은 없앴다 (v2.0 사용자 요청) */
   .gnb > button,.gnb > .grp > button{height:38px}
   .gnb button,.gnb a.gnb-link{
     position:relative;display:flex;align-items:center;width:100%;padding:0;border-radius:0;
