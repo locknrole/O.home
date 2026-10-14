@@ -90,11 +90,9 @@ export function EditableDesc({ k, def, always }: { k: string; def: string; alway
   const save = () => {
     const v = draft.trim();
     const map = load();
-    // 빈 값도 그대로 저장한다 (v2.0 사용자 요청 — 「설명을 비워도 비운 채로」).
-    // 예전에는 비우면 저장값을 지워 기본 문구로 되돌아갔다. 기본 문구가 필요하면 다시 써 넣으면 된다
-    map[k] = v;
+    if (v) map[k] = v; else delete map[k];
     try { setSetting(STORAGE_KEY, map); } catch { /* 무시 */ }
-    setText(v);
+    setText(v || def);
     setEditing(false);
   };
 
@@ -113,16 +111,6 @@ export function EditableDesc({ k, def, always }: { k: string; def: string; alway
           if (e.key === 'Escape') setEditing(false);
         }}
       />
-    );
-  }
-
-  // 비운 설명 — 방문자에겐 아무것도 안 보이고, 관리자에겐 다시 눌러 고칠 수 있게 흐린 자리표시
-  if (!text) {
-    if (!isAdmin) return null;
-    return (
-      <p className={`editable empty${always ? ' gate' : ''}`} onClick={() => { setDraft(''); setEditing(true); }}>
-        설명 없음 · 클릭해서 입력
-      </p>
     );
   }
 
