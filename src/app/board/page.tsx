@@ -41,7 +41,7 @@ function BoardInner() {
   const [cat, setCat] = useState('전체');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
-  // 자관 필터 (v2.0 사용자 요청 — TRPG 로그와 같은 방식): all | none(단발) | 자관 id
+  // 자관 필터 (v2.0 사용자 요청 — TRPG 로그와 같은 방식): all | none(기타 — 자관 연동 없음) | 자관 id
   const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
   const [relF, setRelF] = useState('all');
 
@@ -193,7 +193,7 @@ function BoardInner() {
           ))}
           {relCounts['none'] > 0 && (
             <div className={`tag ${relF === 'none' ? 'on' : ''}`} onClick={() => { setRelF('none'); setPage(1); }}>
-              단발 <small>{relCounts['none']}</small>
+              기타 <small>{relCounts['none']}</small>
             </div>
           )}
         </div>
