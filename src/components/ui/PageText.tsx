@@ -67,7 +67,7 @@ function load(): Record<string, string> {
 /** 페이지 문구 직접 읽기/쓰기 — 환경설정 등 다른 화면에서 편집할 때 (v1.9) */
 export function getPageText(k: string, def: string): string {
   const v = load()[k];
-  return v !== undefined ? v : def;
+  return v ? v : def;   // 빈 값도 「저장값 없음」으로 — 아래 EditableDesc와 같은 이유
 }
 export function setPageText(k: string, v: string) {
   const map = load();
@@ -84,7 +84,9 @@ export function EditableDesc({ k, def, always }: { k: string; def: string; alway
 
   useEffect(() => {
     const v = load()[k];
-    setText(v !== undefined ? v : def); // 키 변경 시(다른 캐릭터 등) 기본값으로 리셋
+    /* 빈 값은 「저장값 없음」으로 보고 기본 문구를 띄운다 (v2.0 — 잠깐 있던 「빈 값 저장」 기능으로 빈 설명이
+       서버에 남은 경우, 글자가 없어 영영 안 보이고 관리자가 눌러 고칠 자리도 없었다). 다시 저장하면 빈 값은 지워진다 */
+    setText(v ? v : def); // 키 변경 시(다른 캐릭터 등) 기본값으로 리셋
   }, [k, def]);
 
   const save = () => {
