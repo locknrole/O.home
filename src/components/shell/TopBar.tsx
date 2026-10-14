@@ -2,7 +2,7 @@
 // 상단 바 — 기획서 3장(계층 메뉴) + 4.0(프로필 드롭다운 · 편집모드 · 그리드 토글)
 // 로고 클릭 = 메인 이동 (v1.5) · 상위 메뉴 클릭 = 첫 하위 페이지 이동 (v1.8)
 // 편집모드 중 페이지 이동 시도 → 종료 확인 모달 (v1.8)
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { boardEntries, useMenuSettings, buildMenu } from '@/lib/menuStore';
 import { useBoards } from '@/lib/boardStore';
@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/Toast';
 import { KToggle } from '@/components/ui/Kit';
 import { useTheme } from '@/lib/ThemeProvider';
 import { playSchemeSwitch } from '@/components/shell/SchemeFx';
+import { G1Banner } from '@/components/shell/G1Banner';
 import {
   Notif, NotifType, NOTIF_EVENT, NOTIF_TYPE_LABEL,
   readNotifs, markRead, markAllRead, clearReadNotifs, notifSettings, setNotifSetting, syncNotifs, selfTestNotif,
@@ -166,6 +167,8 @@ export function TopBar() {
 
   return (
     <header className="topbar">
+      {/* 사이드바 상단 G1 배너 — 메뉴에 따라 장면이 바뀐다 (PC 사이드바에서만, skin.css) */}
+      <Suspense fallback={null}><G1Banner /></Suspense>
       {/* 로고 — 텍스트·서브타이틀·정렬은 환경설정 > 디자인 (5.2) */}
       <div className="brand" onClick={() => nav('/')}>
         {siteLoaded && <span className="brand-row"><BrandIcon />{site.title}</span>}
