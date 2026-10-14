@@ -5,6 +5,7 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useLocalList, BOARD_SEED, Post, newId, FoldType } from '@/lib/postStore';
+import { Relation, REL_SEED } from '@/lib/charStore';
 import { useBoards, boardHref, MAIN_BOARD_ID } from '@/lib/boardStore';
 import { renderBody } from '@/lib/sanitize';
 import { KInput, KTextarea, KSelect, KCheck } from '@/components/ui/Kit';
@@ -42,6 +43,9 @@ function WriteInner() {
   }, [board.cats.length]);
   const [secret, setSecret] = useState(false);
   const [notice, setNotice] = useState(false);
+  // 연동 자관 (v2.0 사용자 요청 — TRPG 로그와 같은 자관 필터용)
+  const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
+  const [relId, setRelId] = useState('none');
   // 태그 (v2.0 사용자 요청) — 쉼표로 구분해 입력, 저장할 때 배열로
   const [tagsText, setTagsText] = useState('');
   const parseTags = (s: string) =>
@@ -79,6 +83,7 @@ function WriteInner() {
     setSecret(p.secret); setNotice(p.notice);
     setFoldType(p.fold?.type ?? 'none'); setFoldLabel(p.fold?.label ?? '');
     setTagsText((p.tags ?? []).join(', '));
+    setRelId(p.relId ?? 'none');
     setThumbSrc(p.thumbSrc); setThumbCrop(p.thumbCrop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editPid, postsLoaded, posts]);
@@ -106,6 +111,7 @@ function WriteInner() {
         category,
         secret, notice: isAdmin ? notice : p.notice,
         tags: parseTags(tagsText),
+        relId: relId === 'none' ? undefined : relId,
         fold: foldType === 'none' ? null : { type: foldType, label: foldType === 'custom' ? foldLabel : undefined },
         thumbSrc, thumbCrop,
       } : p)));
@@ -119,6 +125,7 @@ function WriteInner() {
       author: user.nickname, authorId: user.id, date: new Date().toISOString(),
       secret, notice: isAdmin && notice,
       tags: parseTags(tagsText),
+      relId: relId === 'none' ? undefined : relId,
       fold: foldType === 'none' ? null : { type: foldType, label: foldType === 'custom' ? foldLabel : undefined },
       comments: [],
       boardId: board.id,   // 소속 게시판 (5.2 다중 게시판)
@@ -220,6 +227,12 @@ function WriteInner() {
               <label className="k-label" style={{ width: 60 }}>태그</label>
               <KInput value={tagsText} onChange={e => setTagsText(e.target.value)}
                 placeholder="쉼표로 구분" style={{ flex: 1 }} />
+            </div>
+            {/* 자관 연동 (v2.0 사용자 요청) — 목록 오른쪽 자관 필터로 거를 수 있다 (TRPG 로그와 같은 방식) */}
+            <div className="form-row">
+              <label className="k-label" style={{ width: 60 }}>자관</label>
+              <KSelect minWidth={130} value={relId} onChange={setRelId}
+                options={[{ value: 'none', label: '자관 연동 없음' }, ...rels.map(r => ({ value: r.id, label: r.name }))]} />
             </div>
             <div style={{ display: 'grid', gap: 9 }}>
               <KCheck label="비밀글 (관리자와 나만 열람)" checked={secret} onChange={setSecret} />

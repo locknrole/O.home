@@ -75,6 +75,8 @@ export interface Post {
   tags?: string[];
   thumbSrc?: string;     // 티켓 스킨 대표 이미지 — 본문에 삽입한 이미지 중 선택 (v1.9)
   thumbCrop?: { x: number; y: number; scale: number };  // 대표 썸네일 크롭 (16:9)
+  /** 연동 자관 (v2.0 사용자 요청 — TRPG 로그처럼 목록 오른쪽 자관 필터로 거른다). 없으면 단발 */
+  relId?: string;
 }
 
 export interface GuestEntry {
