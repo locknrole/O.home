@@ -336,6 +336,8 @@ export default function RelDetailPage() {
      표시 영역은 화면 높이에 따라 달라지므로 고정 비율이 아니라 **실제 상자 비율**로 연다. */
   const [artCtx, setArtCtx] = useState<{ x: number; y: number; ref: string } | null>(null);
   const [artCropOpen, setArtCropOpen] = useState<{ ref: string; ratio: number } | null>(null);
+  // 중앙 일러 클릭 → 원본 크기로 (v2.0 사용자 요청). 넘기기는 일러 아래 화살표·점으로 옮겼다
+  const [artLb, setArtLb] = useState<number | null>(null);
   const artBoxRef = useRef<HTMLDivElement>(null);
   const artBoxRatio = () => {
     const r = artBoxRef.current?.getBoundingClientRect();
@@ -416,6 +418,16 @@ export default function RelDetailPage() {
   const auTimeline = (isBaseAu ? rel?.timeline : au?.timeline) ?? [];
   const auQuestions = (isBaseAu ? rel?.questions : au?.questions) ?? [];
   const curArt = auArts[Math.min(artIdx, Math.max(0, auArts.length - 1))];
+  /* 중앙 일러 넘기기 (v2.0 사용자 요청) — 일러 위를 누르면 원본 보기라, 다음 장으로 가는 건 일러 아래로 뺐다.
+     ‹ › 화살표 + 점(누르면 그 장으로). 한 장뿐이면 없다 */
+  const artCur = Math.min(artIdx, Math.max(0, auArts.length - 1));
+  const artNav = auArts.length > 1 ? (
+    <div className="art-nav">
+      <button aria-label="이전 일러" onClick={() => setArtIdx((artCur - 1 + auArts.length) % auArts.length)}>‹</button>
+      {auArts.map((_, i) => <i key={i} className={i === artCur ? 'on' : ''} onClick={() => setArtIdx(i)} />)}
+      <button aria-label="다음 일러" onClick={() => setArtIdx((artCur + 1) % auArts.length)}>›</button>
+    </div>
+  ) : null;
   /** 이 장의 위치만 저장 — 참조를 키로 두어 다른 장·AU 것은 그대로 (v2.0) */
   const saveArtCrop = (ref: string, c: CropValue | undefined) => updateRel({
     artCrops: (() => {
@@ -948,6 +960,7 @@ export default function RelDetailPage() {
                 onGo={() => router.push(charHref(pairSlots[0]!.charId))}
                 onRemove={() => removeMember(pairSlots[0]!.charId)} />
             : <EmptyCard isAdmin={isAdmin} onAdd={() => setMemberOpen(true)} />}
+          <div className="rel-center-col">
           <div className={`rel-center ${single ? 'one-mode' : ''}`}
             style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--line-dark)' }}>
             {/* 전신 — 등록 이미지(AU별 우선) + 크기/앞뒤는 자관 수정의 미리보기에서 (v1.9) */}
@@ -967,8 +980,8 @@ export default function RelDetailPage() {
                 </div>
               );
             })}
-            <div className="single" ref={artBoxRef} style={{ cursor: auArts.length > 1 ? 'pointer' : undefined }}
-              onClick={() => { const n = auArts.length; if (n > 1) setArtIdx(i => (i + 1) % n); }}
+            <div className="single" ref={artBoxRef} style={{ cursor: auArts.length > 0 ? 'zoom-in' : undefined }}
+              onClick={() => { if (auArts.length > 0) setArtLb(artCur); }}
               onContextMenu={e => {
                 if (!isAdmin || !curArt) return;
                 e.preventDefault();
@@ -978,13 +991,6 @@ export default function RelDetailPage() {
                 <>
                   {/* 잡아 둔 위치가 있으면 그대로 (v2.0) — 없으면 예전처럼 통째로 */}
                   <CroppedBlobImg fileRef={auArts[Math.min(artIdx, auArts.length - 1)]} crop={rel.artCrops?.[curArt]} ph="" label="MAIN ILLUST" />
-                  {auArts.length > 1 && (
-                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 44, display: 'flex', justifyContent: 'center', gap: 5, zIndex: 3 }}>
-                      {auArts.map((_, i) => (
-                        <i key={i} style={{ width: i === Math.min(artIdx, auArts.length - 1) ? 16 : 6, height: 6, borderRadius: 4, background: i === Math.min(artIdx, auArts.length - 1) ? '#fff' : 'rgba(255,255,255,.45)', transition: '.2s' }} />
-                      ))}
-                    </div>
-                  )}
                 </>
               ) : (
                 <div className="ph" style={{ position: 'absolute', inset: 0 }}><span>MAIN ILLUST</span></div>
@@ -1001,6 +1007,9 @@ export default function RelDetailPage() {
                 <button className={single ? 'on' : ''} onClick={() => setOneMode(true)}>일러스트</button>
               </div>
             )}
+          </div>
+          {/* 일러 넘기기 — 일러 아래 (전신 보기일 땐 일러가 안 보이므로 숨김) */}
+          {single && artNav}
           </div>
           {pairSlots[1]
             ? <MiniProf member={pairSlots[1]} char={charOf(pairSlots[1].charId)} isAdmin={isAdmin}
@@ -1059,9 +1068,10 @@ export default function RelDetailPage() {
           </div>
 
           {/* 우: 그룹 일러 — 여러 장이면 클릭 넘김 + 도트 */}
+          <div>
           <div className="multi-illust" ref={artBoxRef}
-            style={{ cursor: auArts.length > 1 ? 'pointer' : undefined }}
-            onClick={() => { const n = auArts.length; if (n > 1) setArtIdx(i => (i + 1) % n); }}
+            style={{ cursor: auArts.length > 0 ? 'zoom-in' : undefined }}
+            onClick={() => { if (auArts.length > 0) setArtLb(artCur); }}
             onContextMenu={e => {
               if (!isAdmin || !curArt) return;
               e.preventDefault();
@@ -1070,17 +1080,12 @@ export default function RelDetailPage() {
             {auArts.length > 0 ? (
               <>
                 <CroppedBlobImg fileRef={auArts[Math.min(artIdx, auArts.length - 1)]} crop={rel.artCrops?.[curArt]} ph="" label="GROUP ILLUST" />
-                {auArts.length > 1 && (
-                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 14, display: 'flex', justifyContent: 'center', gap: 5, zIndex: 3 }}>
-                    {auArts.map((_, i) => (
-                      <i key={i} style={{ width: i === Math.min(artIdx, auArts.length - 1) ? 16 : 6, height: 6, borderRadius: 4, background: i === Math.min(artIdx, auArts.length - 1) ? '#fff' : 'rgba(255,255,255,.45)', transition: '.2s' }} />
-                    ))}
-                  </div>
-                )}
               </>
             ) : (
               <div className="ph" style={{ position: 'absolute', inset: 0 }}><span>GROUP ILLUST</span></div>
             )}
+          </div>
+          {artNav}
           </div>
         </div>
       )}
@@ -1358,6 +1363,9 @@ export default function RelDetailPage() {
           </div>
         ) : <p className="hint" style={{ margin: 0 }}>연동된 그림이 없습니다 — 갤러리 글쓰기에서 자관을 선택하면 여기에 표시</p>}
       </div>
+
+      {/* 중앙 일러 원본 보기 (v2.0) — 라이트박스 안에서도 ‹ › 로 넘길 수 있다 */}
+      {artLb !== null && <Lightbox srcs={auArts} index={artLb} onClose={() => setArtLb(null)} />}
 
       {/* ---------- 멤버 추가 모달 ---------- */}
       <Modal open={memberOpen} onClose={() => setMemberOpen(false)} small title="멤버 추가"
