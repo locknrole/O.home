@@ -327,3 +327,17 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
 /* 캐릭터 상세 — 중앙 아트 가로 맞춤 (v2.0 사용자 요청, 캐릭터 수정의 「상세 아트 비율」)
    가로폭에 맞추고 높이는 그림 원래 비율대로 — 자르지 않는다 (모바일의 3:4 고정도 풀어 준다) */
 .profile-center.fit{height:auto;min-height:0;aspect-ratio:auto}
+
+/* 자관 상세 — 모바일 (v2.0 사용자 제보: 레이아웃 깨짐)
+   PC에선 AU 네모(우상단)·EDIT/DELETE(좌상단)를 히어로 위에 띄우는데, 좁은 폭에선 서로 겹치고
+   자관 이름 위 문구까지 가렸다 → 960px 이하에선 흐름 안으로 내려 한 줄씩 쌓는다 */
+@media (max-width:960px){
+  .page-rel-detail > .rel-admin-actions{position:relative;top:auto;left:auto;justify-content:flex-end;margin-bottom:10px}
+  .page-rel-detail > .au-list{position:relative;top:auto;right:auto;justify-content:flex-start;overflow-x:auto;padding:2px 2px 4px;margin-bottom:6px;scrollbar-width:none}
+  .page-rel-detail > .au-list::-webkit-scrollbar{display:none}
+  .page-rel-detail > .au-list .au-item{flex-shrink:0}
+}
+/* 폰 폭에선 아래 연동 칸(백업·로그, 역극·trpg)을 한 줄에 하나씩 — 두 칸이면 제목이 줄바꿈될 만큼 좁다 */
+@media (max-width:620px){
+  .page-rel-detail .g2{grid-template-columns:1fr}
+}
