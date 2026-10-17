@@ -22,24 +22,33 @@ const FOLD_LABEL = { spoiler: '스포일러', adult: '수위 주의' };
 /** 갤러리 무한 스크롤 한 묶음 — 카드는 이미지만 (제목·날짜는 상세에서, v2.0 사용자 요청) */
 const FEED_STEP = 24;
 
-/** 핀터레스트형 카드 — 대표 이미지를 크롭 없이 원래 비율로. 비율은 로드되면 Masonry에 알린다 */
+/** 핀터레스트형 카드 — 대표 이미지를 원래 비율로(썸네일 크롭이 있으면 그 4:3 크롭으로). 비율은 Masonry에 알린다 */
 function GalleryCard({ p, folded, report, onUnveil }: {
   p: BackupPost; folded: boolean; report: (ratio: number) => void; onUnveil: () => void;
 }) {
   const url = useBlobUrl(p.images[0]);
   const reported = useRef(false);
   const done = (r: number) => { if (!reported.current) { reported.current = true; report(r); } };
+  // 「썸네일 수정」으로 크롭을 지정한 글은 원래 비율 대신 그 크롭(4:3)으로 보인다 (v2.0 사용자 요청)
+  const cropped = !!(p.thumbCrop && p.images[0]);
   useEffect(() => {
+    if (cropped) report(0.75);   // 나중에 크롭을 지정해도 바로 4:3 자리로
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cropped]);
+  useEffect(() => {
+    if (cropped) return;
     if (!p.images[0]) { done(0.75); return; }   // 이미지 없는 글 — 자리표시 4:3
     // 끝내 안 불러와지는 이미지가 뒤 카드들을 막지 않게
     const t = setTimeout(() => done(0.75), 8000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.images[0]]);
+  }, [p.images[0], cropped]);
   return (
     <>
       <div className={`gm-img ${folded ? 'veil' : ''}`}>
-        {url
+        {cropped
+          ? <CroppedBlobImg fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} alt={p.title} />
+          : url
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={url} alt={p.title} draggable={false}
             onLoad={e => done(e.currentTarget.naturalHeight / e.currentTarget.naturalWidth)}
@@ -177,7 +186,7 @@ function BackupPageInner() {
       {/* 갤러리/리스트 모두 렌더해 두고 display로만 전환 (v1.9) —
           전환 때마다 재마운트되며 이미지가 다시 로드·등장하던 깜빡임 제거 */}
       {/* 갤러리 보기 = 핀터레스트형 (v2.0 사용자 요청) — 원래 비율 그대로 이어 붙이고, 끝에 닿으면 다음 묶음 */}
-      {/* 가로가 세로의 1.6배 이상인 그림은 두 칸 폭 (v2.0 사용자 요청 — B안) */}
+      {/* 가로가 세로의 1.5배(3:2) 이상인 그림은 두 칸 폭 (v2.0 사용자 요청 — B안) */}
       <div style={{ display: view === 'gal' && visible.length > 0 ? undefined : 'none' }}>
         <Masonry items={feed} infoH={0} wideRatio={0.67} complete={feed.length >= visible.length} onReadyChange={setFeedReady}
           itemProps={(p, i) => ({
