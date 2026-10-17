@@ -48,6 +48,8 @@ export interface BackupPost {
   tags?: string[];
   /** 연동 자관 (v2.0 사용자 요청 — 게시판·TRPG 로그처럼 목록 오른쪽 자관 필터로 거른다). 없으면 「기타」 */
   relId?: string;
+  /** 그 자관의 AU (v2.0 사용자 요청) — 자관 상세에서만 AU별로 나눠 본다. 없으면 원래 설정 */
+  auId?: string;
 }
 
 export const BACKUP_SEED: BackupPost[] = [];
@@ -66,6 +68,7 @@ export interface TrpgLog {
   writer: string;            // 라이터 (필수)
   withText: string;          // 같이 간 사람 표기 (필수)
   relId?: string;            // 자관 연동 (필터)
+  auId?: string;             // 그 자관의 AU (v2.0 사용자 요청 — 자관 상세에서만 AU별로). 없으면 원래 설정
   date?: string;             // 선택
   ph: string;
   thumbUrl?: string;

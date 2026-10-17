@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useSectionParam, filterSection, sectionSetter, secStamp } from '@/lib/sectionStore';
 import { useLocalList, newId } from '@/lib/postStore';
 import { TrpgLog, TRPG_SEED, TrpgLogBody, TRPG_BODY_SEED, bodyVisibility, decodeLogText, logNo, saveLogBody } from '@/lib/galleryStore';
-import { Relation, REL_SEED } from '@/lib/charStore';
+import { Relation, REL_SEED, relAusOf, firstAuId, auOptions, savedAuId } from '@/lib/charStore';
 import { SearchBar, KInput, KTextarea, KRadio, KSelect, KDate, Pager } from '@/components/ui/Kit';
 import { Modal } from '@/components/ui/Modal';
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
@@ -61,6 +61,7 @@ function TrpgPageInner() {
   const [nWriter, setNWriter] = useState('');
   const [nWith, setNWith] = useState('');
   const [nRel, setNRel] = useState('none');
+  const [nAu, setNAu] = useState('base');   // 그 자관의 AU (v2.0 사용자 요청) — 자관을 고르면 첫 번째 AU가 기본
   const [nDate, setNDate] = useState('');
   const [nMode, setNMode] = useState<'file' | 'paste'>('paste');
   const [nBody, setNBody] = useState('');
@@ -195,6 +196,7 @@ function TrpgPageInner() {
       title: nTitle.trim(), catchphrase: nCatch.trim() || undefined,
       writer: nWriter.trim(), withText: nWith.trim(),
       relId: nRel === 'none' ? undefined : nRel,
+      auId: savedAuId(rels, nRel, nAu),
       date: nDate || undefined, ph: 'cool',
       visibility: nVis,
       password: nPw.trim() || undefined,
@@ -378,8 +380,12 @@ function TrpgPageInner() {
             <KInput placeholder="같이 간 사람 (선택)" value={nWith} onChange={e => setNWith(e.target.value)} />
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <KSelect minWidth={140} value={nRel} onChange={setNRel}
+            <KSelect minWidth={140} value={nRel} onChange={v => { setNRel(v); setNAu(firstAuId(rels, v)); }}
               options={[{ value: 'none', label: '자관 연동 없음' }, ...rels.map(r => ({ value: r.id, label: r.name }))]} />
+            {/* 그 자관의 AU (v2.0) — 자관 상세에서 AU별로 나눠 보인다 */}
+            {relAusOf(rels, nRel).length > 0 && (
+              <KSelect minWidth={110} value={nAu} onChange={setNAu} options={auOptions(rels, nRel)} />
+            )}
             <KDate value={nDate} onChange={setNDate} style={{ flex: 1 }} />
           </div>
           {/* 접근권한 + 열람 비밀번호 (선택) — 권한이 없어도 비밀번호를 아는 사람은 열람 가능.

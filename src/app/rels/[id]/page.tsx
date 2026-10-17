@@ -18,7 +18,10 @@ import {
 import { RelQuestionSet, RELQ_SEED, RELQ_KEY, CP_LABEL } from '@/lib/relqStore';
 import { putBlob } from '@/lib/blobStore';
 import { GrantsEditor } from '@/components/chars/GrantsEditor';
-import { TrpgLog, TRPG_SEED } from '@/lib/galleryStore';
+import { TrpgLog, TRPG_SEED, BackupPost, BACKUP_SEED } from '@/lib/galleryStore';
+import { Post, BOARD_SEED } from '@/lib/postStore';
+import { useBoards, boardHref, MAIN_BOARD_ID } from '@/lib/boardStore';
+import { useMenuSettings, menuLabelOf } from '@/lib/menuStore';
 import { RpRoom, RP_SEED } from '@/lib/rpStore';
 import { useFonts } from '@/lib/fontStore';
 import { Tip, KInput, KTextarea, KSelect, KRadio, KCheck } from '@/components/ui/Kit';
@@ -245,6 +248,11 @@ export default function RelDetailPage() {
   const [chars, setChars, charsLoaded] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
   const [logs] = useLocalList<TrpgLog>('ohome.trpg.v1', TRPG_SEED);
   const [rooms] = useLocalList<RpRoom>('ohome.rp.v1', RP_SEED);
+  // 갤러리 · 게시판 연동 (v2.0 사용자 요청 — 자관 상세에서 연관 글을 모아 본다)
+  const [galPosts] = useLocalList<BackupPost>('ohome.backup.v1', BACKUP_SEED);
+  const [boardPosts] = useLocalList<Post>('ohome.board.v1', BOARD_SEED);
+  const { boards } = useBoards();
+  const [menuSet] = useMenuSettings();
   const [tab, setTab] = useState<'tl' | 'qa'>('tl');
   const [auId, setAuId] = useState('base');
   const [oneMode, setOneMode] = useState<boolean | null>(null);
@@ -482,11 +490,27 @@ export default function RelDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rel, auId, qaQuery],
   );
-  const relLogs = useMemo(() => logs.filter(l => l.relId === rel?.id), [logs, rel]);
+  // TRPG · 갤러리 · 게시판 — 지금 보고 있는 AU의 글만 (v2.0 사용자 요청). AU를 안 고른 글은 원래 설정에
+  const curAuId = au?.id ?? 'base';
+  const relLogs = useMemo(() => logs.filter(l => l.relId === rel?.id && (l.auId ?? 'base') === curAuId),
+    [logs, rel, curAuId]);
   // 역극 연동 (4.9) — 내가 참여한 방 + 공개 전환된 완결 방만 (비참여 방은 존재 자체 비노출)
   const relRooms = useMemo(() => rooms.filter(rm => rm.relId === rel?.id
     && ((user && rm.memberIds.includes(user.id)) || (rm.status === 'done' && rm.isPublic))),
     [rooms, rel, user]);
+  // 갤러리 — 갤러리 목록과 같은 공개범위 규칙, 저장 순서 그대로
+  const relGal = useMemo(() => galPosts.filter(p => p.relId === rel?.id
+    && (p.auId ?? 'base') === curAuId
+    && (isAdmin || p.visibility === 'public' || (p.visibility === 'member' && !!user))),
+    [galPosts, rel, curAuId, isAdmin, user]);
+  // 게시판 — 게시판마다 한 칸, 최신순. 못 여는 비밀글은 아예 뺀다 (게시판 목록의 canRead와 같은 규칙)
+  const relBoards = useMemo(() => boards.map(b => ({
+    board: b,
+    posts: boardPosts
+      .filter(p => p.relId === rel?.id && (p.boardId ?? MAIN_BOARD_ID) === b.id && (p.auId ?? 'base') === curAuId
+        && (!p.secret || isAdmin || (!!p.authorId && p.authorId === user?.id)))
+      .sort((a, c) => c.date.localeCompare(a.date)),
+  })), [boards, boardPosts, rel, curAuId, isAdmin, user]);
 
   if (!loaded) return <section className="page" />;
   if (!rel || (rel.visibility === 'private' && !isAdmin) || (rel.visibility === 'member' && !user)) {
@@ -1288,7 +1312,8 @@ export default function RelDetailPage() {
         )}
         {!au?.hideLog && (
         <div className="panel widget" style={{ margin: 0, ...(au?.hideRp ? { gridColumn: '1/-1' } : null) }}>
-          <h4>로그 <span className="more" onClick={() => router.push('/trpg')}>더보기 ›</span></h4>
+          {/* 게시판 「로그」와 겹치지 않게 메뉴 이름(TRPG)으로 (v2.0) */}
+          <h4>{menuLabelOf(menuSet, '/trpg') ?? 'TRPG'} <span className="more" onClick={() => router.push('/trpg')}>더보기 ›</span></h4>
           {relLogs.length > 0 ? relLogs.map(l => (
             <div key={l.id} className="dday-row" style={{ cursor: 'var(--cur-pointer,pointer)' }} onClick={() => router.push(`/trpg/${l.id}`)}>
               {/* 번호 없이 제목만 — 연동 리스트에서는 순번이 의미가 없다 (사용자 확정) */}
@@ -1300,6 +1325,37 @@ export default function RelDetailPage() {
         )}
       </div>
       )}
+
+      {/* 갤러리 · 게시판 연동 (v2.0 사용자 요청) — 글쓰기에서 이 자관을 고른 글만. 칸 이름은 메뉴에 붙인 이름을 따른다 */}
+      <div className="panel widget" style={{ margin: '16px 0 0' }}>
+        <h4>{menuLabelOf(menuSet, '/gallery') ?? '갤러리'} <span className="more" onClick={() => router.push('/gallery')}>더보기 ›</span></h4>
+        {relGal.length > 0 ? (
+          <div className="rel-gal">
+            {relGal.map(p => (
+              <div key={p.id} className="t" data-tip={p.title} onClick={() => router.push(`/gallery/${p.id}`)}>
+                {/* 접힌 글(스포일러·수위)은 흐리게만 — 들어가서 펼친다 */}
+                <div style={{ position: 'absolute', inset: 0, ...(p.fold ? { filter: 'blur(10px)' } : null) }}>
+                  <CroppedBlobImg fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} alt={p.title} />
+                </div>
+                {p.fold && <span className="fold">접힘</span>}
+              </div>
+            ))}
+          </div>
+        ) : <p className="hint" style={{ margin: 0 }}>연동된 그림이 없습니다 — 갤러리 글쓰기에서 자관을 선택하면 여기에 표시</p>}
+      </div>
+      <div className="g2" style={{ marginTop: 16 }}>
+        {relBoards.map(({ board: b, posts: bp }) => (
+          <div key={b.id} className="panel widget" style={{ margin: 0 }}>
+            <h4>{menuLabelOf(menuSet, boardHref(b.id)) ?? b.name} <span className="more" onClick={() => router.push(boardHref(b.id))}>더보기 ›</span></h4>
+            {bp.length > 0 ? bp.map(p => (
+              <div key={p.id} className="dday-row" style={{ cursor: 'var(--cur-pointer,pointer)' }} onClick={() => router.push(`/board/${p.id}`)}>
+                <span>{p.title}</span>
+                <b style={{ fontSize: 11, color: 'var(--faint)' }}>{p.date.slice(0, 10).replace(/-/g, '.')}</b>
+              </div>
+            )) : <p className="hint" style={{ margin: 0 }}>연동된 글이 없습니다 — 글쓰기에서 자관을 선택하면 여기에 표시</p>}
+          </div>
+        ))}
+      </div>
 
       {/* ---------- 멤버 추가 모달 ---------- */}
       <Modal open={memberOpen} onClose={() => setMemberOpen(false)} small title="멤버 추가"

@@ -317,3 +317,9 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
 /* 갤러리 자관 필터 드롭다운 — 옆 검색칸(35px)과 높이를 맞춘다 (gallery/page.tsx .rel-select) */
 .rel-select .k-select{min-width:0}
 .rel-select .k-select .cur{padding-top:7px;padding-bottom:7px;font-size:calc(12px*var(--fs,1))}
+
+/* 자관 상세 — 연동 갤러리 썸네일 (v2.0 사용자 요청) */
+.rel-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+.rel-gal .t{position:relative;aspect-ratio:4/3;border-radius:var(--radius-s,8px);overflow:hidden;cursor:var(--cur-pointer,pointer);background:var(--panel-solid)}
+.rel-gal .t:hover{opacity:.85}
+.rel-gal .fold{position:absolute;inset:0;display:grid;place-items:center;font-size:11px;letter-spacing:.1em;color:#fff;background:rgba(0,0,0,.35)}
