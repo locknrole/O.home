@@ -159,7 +159,8 @@ function CharDetailInner() {
         <div className="au-list" style={{ justifyContent: 'flex-end', marginBottom: 10 }}>
           <div className={`au-item ${auKey === null ? 'on' : ''} ph ${ch.thumbClass}`} style={{ borderColor: auKey === null ? 'var(--accent)' : 'var(--line)' }}
             onClick={() => setAuKey(null)}>
-            {(ch.thumbId || ch.arts?.[0]) && <CroppedBlobImg fileRef={ch.thumbId ?? ch.arts?.[0]} crop={ch.thumbCrop} ph={ch.thumbClass} />}
+            {/* 정사각 칸 — 리스트용 3:4 크롭을 이 칸 비율로 옮긴다 (v2.0, 자관 AU 목록과 같은 문제) */}
+            {(ch.thumbId || ch.arts?.[0]) && <CroppedBlobImg fileRef={ch.thumbId ?? ch.arts?.[0]} crop={ch.thumbCrop} from={3 / 4} anchorTop ph={ch.thumbClass} />}
             <small>원본</small>
           </div>
           {charAus.map(a => {
@@ -173,7 +174,7 @@ function CharDetailInner() {
                 style={{ borderColor: auKey === a.key ? 'var(--accent)' : 'var(--line)' }}
                 data-tip={`${a.relName} · ${a.label}`}
                 onClick={() => setAuKey(a.key)}>
-                {ref && <CroppedBlobImg fileRef={ref} crop={p?.thumbCrop} ph={ch.thumbClass} />}
+                {ref && <CroppedBlobImg fileRef={ref} crop={p?.thumbCrop} from={3 / 4} anchorTop ph={ch.thumbClass} />}
                 <small>{a.label}</small>
               </div>
             );

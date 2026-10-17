@@ -857,8 +857,10 @@ export default function RelDetailPage() {
             return (
               <div key={a.id} className={`au-item ${auId === a.id ? 'on' : ''}`}
                 onClick={() => { setAuId(a.id); setArtIdx(0); setQaNo(null); }}>
-                <CroppedBlobImg fileRef={thumb} crop={isBase ? rel.thumbCrop : undefined}
-                  ph={['cool', 'pale', 'red'][i % 3]} />
+                {/* 정사각 칸 (v2.0 사용자 제보 — 윗부분이 잘림): 원본은 자관 목록용 4:3 크롭을 이 칸 비율로 옮기고,
+                    크롭이 없는 AU 그림은 가운데가 아니라 위쪽 기준으로 채운다 */}
+                <CroppedBlobImg fileRef={thumb} crop={isBase && rel.thumbId ? rel.thumbCrop : undefined}
+                  from={4 / 3} anchorTop ph={['cool', 'pale', 'red'][i % 3]} />
                 <small>{a.label}</small>
               </div>
             );
