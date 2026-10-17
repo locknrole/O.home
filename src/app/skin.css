@@ -162,7 +162,8 @@ html[data-scheme="dark"] .brand-ico .alien{opacity:1;transform:none}
 .btn-scheme:hover,.btn-cat:hover,.topbar .badge-dot:hover{color:var(--top-fg)}
 .btn-scheme:active{transform:rotate(180deg)}
 .btn-scheme svg,.btn-cat svg,.topbar .badge-dot svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;display:block}
-.user-chip{gap:7px;padding:2px 4px;font-size:calc(12px*var(--fs,1));min-width:0}
+/* 알림 버튼이 이 칩 안 맨 앞에 있다 — 왼쪽 여백을 없애고 간격을 도구 줄(6px)과 같게 해 메뉴·밝기·알림·프로필 간격을 일정하게 (v2.0 사용자 요청) */
+.user-chip{gap:6px;padding:2px 4px 2px 0;font-size:calc(12px*var(--fs,1));min-width:0}
 .user-chip:hover{background:none}
 .user-chip .avatar{width:24px;height:24px;border-color:var(--line)}
 .login-link{height:28px;padding:0 12px;border-color:var(--line);border-radius:6px;background:var(--wrap-sub);font-size:calc(11.5px*var(--fs,1))}
