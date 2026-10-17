@@ -3,6 +3,7 @@
 // 그림백업게시판 (4.11) — 갤러리/리스트 토글 · 로그/단일 뱃지 · 접기 썸네일 블러
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Masonry } from '@/components/ui/Masonry';
+import { Relation, REL_SEED } from '@/lib/charStore';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useSectionParam, filterSection, sectionSetter, secQuery } from '@/lib/sectionStore';
@@ -97,8 +98,17 @@ function BackupPageInner() {
     setCtx({ x: e.clientX, y: e.clientY, post: p });
   };
 
+  // 자관 필터 (v2.0 사용자 요청 — 게시판·TRPG 로그와 같은 방식): all | none(기타) | 자관 id
+  const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
+  const [relF, setRelF] = useState('all');
+  const canSee = (p: BackupPost) => isAdmin || p.visibility === 'public' || (p.visibility === 'member' && !!user);
+  // 자관별 글 수 — 볼 수 있는 글 기준, 검색과 무관하게 (TRPG·게시판과 같음)
+  const relCounts: Record<string, number> = {};
+  posts.filter(canSee).forEach(p => { const k = p.relId ?? 'none'; relCounts[k] = (relCounts[k] ?? 0) + 1; });
+  const relTotal = Object.values(relCounts).reduce((a, n) => a + n, 0);
   const visible = posts
-    .filter(p => isAdmin || p.visibility === 'public' || (p.visibility === 'member' && user))
+    .filter(canSee)
+    .filter(p => relF === 'all' || (relF === 'none' ? !p.relId : p.relId === relF))
     .filter(p => !q || p.title.includes(q) || p.category.includes(q)
       || (p.tags ?? []).some(t => t.toLowerCase().includes(q.toLowerCase())));   // 태그 검색 (v2.0)
 
@@ -112,7 +122,8 @@ function BackupPageInner() {
   const [feedReady, setFeedReady] = useState(false);
   const feed = visible.slice(0, feedN);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { setFeedN(FEED_STEP); }, [q, view, sec.id]);
+  useEffect(() => { setFeedN(FEED_STEP); }, [q, view, sec.id, relF]);
+  useEffect(() => { setRelF('all'); }, [sec.id]);   // 다른 갤러리(섹션)로 가면 전체로
   // 끝 표시가 보이고 지금 묶음이 다 자리를 잡았으면 다음 묶음. 조건이 바뀔 때마다 다시 관찰해서
   // 이미 보이는 상태(짧은 목록·큰 화면)여도 첫 콜백으로 바로 이어진다
   useEffect(() => {
@@ -129,7 +140,7 @@ function BackupPageInner() {
   const cur = Math.min(page, pages);      // 검색·보기 전환으로 줄면 마지막 장으로 당긴다
   const start = (cur - 1) * PER;
   const paged = visible.slice(start, start + PER);
-  useEffect(() => { setPage(1); }, [q, view]);   // 검색어·보기를 바꾸면 첫 장부터
+  useEffect(() => { setPage(1); }, [q, view, relF]);   // 검색어·보기·자관 필터를 바꾸면 첫 장부터
 
   const meta = (p: BackupPost) =>
     `${count(p)}장 · ${fmtDate(p.madeDate ? p.madeDate + 'T00:00:00' : p.date)}`;
@@ -157,48 +168,69 @@ function BackupPageInner() {
       {/* 갤러리/리스트 모두 렌더해 두고 display로만 전환 (v1.9) —
           전환 때마다 재마운트되며 이미지가 다시 로드·등장하던 깜빡임 제거 */}
       {/* 갤러리 보기 = 핀터레스트형 (v2.0 사용자 요청) — 원래 비율 그대로 이어 붙이고, 끝에 닿으면 다음 묶음 */}
-      <div style={{ display: view === 'gal' && visible.length > 0 ? undefined : 'none' }}>
-        <Masonry items={feed} infoH={0} onReadyChange={setFeedReady}
-          itemProps={(p, i) => ({
-            ...sort(i),
-            onClick: () => { if (!(p.fold && !unveiled[p.id]) && !editOn) router.push(`/gallery/${p.id}`); },
-            onContextMenu: (e: React.MouseEvent) => onCtx(e, p),
-          })}
-          renderItem={(p, _i, report) => (
-            <GalleryCard p={p} folded={!!p.fold && !unveiled[p.id]} report={report}
-              onUnveil={() => setUnveiled(u => ({ ...u, [p.id]: true }))} />
-          )} />
-        {/* 끝 표시 — 화면에 들어오면 다음 묶음 (앞 묶음이 다 자리 잡은 뒤에만) */}
-        <div ref={sentinelRef} className="mz-end">{feed.length >= visible.length && visible.length > FEED_STEP ? '✦' : ''}</div>
-      </div>
-      {/* 게시물이 없으면 컨테이너 자체를 숨김 — 빈 패널이 안내문 위에 카드처럼 남던 버그 (v1.9 사용자 발견) */}
-      <div className="panel flush" style={{ display: view === 'list' && visible.length > 0 ? undefined : 'none' }}>
-          {paged.map(p => (
-            <div key={p.id} className="list-item" onClick={() => router.push(`/gallery/${p.id}`)}
-              onContextMenu={e => onCtx(e, p)}>
-              <div className="th" style={{ position: 'relative' }}><CroppedBlobImg fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} /></div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <b>
-                  {p.title}
-                  {/* 유형 뱃지는 뺐다 (v2.0 사용자 요청) — 접힘 표시만 남긴다 */}
-                  {p.fold && <span className="pill red" style={{ marginLeft: 6 }}>접힘</span>}
-                </b>
-                <small>
-                  {meta(p)}
-                  {/* 태그 — 작성자 왼쪽 줄에 (v2.0 사용자 요청) */}
-                  {(p.tags ?? []).map(t => <i key={t} className="tag-in">#{t}</i>)}
-                </small>
-              </div>
-              <small>{p.author}</small>
+      {/* 목록 + 오른쪽 자관 필터 (v2.0 사용자 요청 — 게시판·TRPG 로그와 같은 배치·모양) */}
+      <div className="trpg-layout">
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: view === 'gal' && visible.length > 0 ? undefined : 'none' }}>
+            <Masonry items={feed} infoH={0} onReadyChange={setFeedReady}
+              itemProps={(p, i) => ({
+                ...sort(i),
+                onClick: () => { if (!(p.fold && !unveiled[p.id]) && !editOn) router.push(`/gallery/${p.id}`); },
+                onContextMenu: (e: React.MouseEvent) => onCtx(e, p),
+              })}
+              renderItem={(p, _i, report) => (
+                <GalleryCard p={p} folded={!!p.fold && !unveiled[p.id]} report={report}
+                  onUnveil={() => setUnveiled(u => ({ ...u, [p.id]: true }))} />
+              )} />
+            {/* 끝 표시 — 화면에 들어오면 다음 묶음 (앞 묶음이 다 자리 잡은 뒤에만) */}
+            <div ref={sentinelRef} className="mz-end">{feed.length >= visible.length && visible.length > FEED_STEP ? '✦' : ''}</div>
+          </div>
+          {/* 게시물이 없으면 컨테이너 자체를 숨김 — 빈 패널이 안내문 위에 카드처럼 남던 버그 (v1.9 사용자 발견) */}
+          <div className="panel flush" style={{ display: view === 'list' && visible.length > 0 ? undefined : 'none' }}>
+              {paged.map(p => (
+                <div key={p.id} className="list-item" onClick={() => router.push(`/gallery/${p.id}`)}
+                  onContextMenu={e => onCtx(e, p)}>
+                  <div className="th" style={{ position: 'relative' }}><CroppedBlobImg fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <b>
+                      {p.title}
+                      {/* 유형 뱃지는 뺐다 (v2.0 사용자 요청) — 접힘 표시만 남긴다 */}
+                      {p.fold && <span className="pill red" style={{ marginLeft: 6 }}>접힘</span>}
+                    </b>
+                    <small>
+                      {meta(p)}
+                      {/* 태그 — 작성자 왼쪽 줄에 (v2.0 사용자 요청) */}
+                      {(p.tags ?? []).map(t => <i key={t} className="tag-in">#{t}</i>)}
+                    </small>
+                  </div>
+                  <small>{p.author}</small>
+                </div>
+              ))}
+            </div>
+          {visible.length === 0 && (
+            <div className="panel" style={{ textAlign: 'center', padding: 44, fontSize: 13, color: 'var(--faint)' }}>
+              게시물이 없습니다
+            </div>
+          )}
+          {view === 'list' && visible.length > PER && <Pager page={cur} total={pages} onChange={setPage} />}
+        </div>
+        <div className="panel tagside">
+          <h4>자관 필터</h4>
+          <div className={`tag ${relF === 'all' ? 'on' : ''}`} onClick={() => setRelF('all')}>
+            전체 <small>{relTotal}</small>
+          </div>
+          {rels.filter(r => relCounts[r.id]).map(r => (
+            <div key={r.id} className={`tag ${relF === r.id ? 'on' : ''}`} onClick={() => setRelF(r.id)}>
+              {r.name} <small>{relCounts[r.id]}</small>
             </div>
           ))}
+          {relCounts['none'] > 0 && (
+            <div className={`tag ${relF === 'none' ? 'on' : ''}`} onClick={() => setRelF('none')}>
+              기타 <small>{relCounts['none']}</small>
+            </div>
+          )}
         </div>
-      {visible.length === 0 && (
-        <div className="panel" style={{ textAlign: 'center', padding: 44, fontSize: 13, color: 'var(--faint)' }}>
-          게시물이 없습니다
-        </div>
-      )}
-      {view === 'list' && visible.length > PER && <Pager page={cur} total={pages} onChange={setPage} />}
+      </div>
 
       {/* 우클릭 메뉴 — 다른 우클릭들과 같은 순서: 메뉴 → 항목 선택 (v2.0) */}
       {ctx && typeof document !== 'undefined' && createPortal(

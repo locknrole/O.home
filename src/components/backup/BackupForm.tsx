@@ -10,7 +10,7 @@ import { useMenuSettings, canGalleryWrite } from '@/lib/menuStore';
 import { BackupPost, BACKUP_SEED } from '@/lib/galleryStore';
 import { useBoardSettings, DEFAULT_GALLERY_CATS, galleryCatsOf } from '@/lib/boardStore';
 import { useConfirmDelete } from '@/components/ui/Modal';
-import { Visibility } from '@/lib/charStore';
+import { Visibility, Relation, REL_SEED } from '@/lib/charStore';
 import { KInput, KSelect, KRadio, KCheck, KDate } from '@/components/ui/Kit';
 import { RichEditor } from '@/components/ui/RichEditor';
 import { DragList } from '@/components/ui/DragList';
@@ -78,6 +78,9 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
   const [category, setCategory] = useState(initial?.category ?? '');
   // 태그 (v2.0 사용자 요청) — 쉼표로 구분해 입력, 저장할 때 배열로
   const [tagsText, setTagsText] = useState((initial?.tags ?? []).join(', '));
+  // 연동 자관 (v2.0 사용자 요청 — 게시판·TRPG 로그와 같은 자관 필터용)
+  const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
+  const [relId, setRelId] = useState(initial?.relId ?? 'none');
   const parseTags = (v: string) =>
     [...new Set(v.split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean))];
   // 목록이 로드되면 첫 말머리를 기본값으로 (등록 화면)
@@ -131,6 +134,7 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
         images: imageIds, phList: files.length ? [] : ['cool'],
         thumbCrop: files[0]?.crop, // 대표 이미지 크롭 (6.1)
         desc, category, tags: parseTags(tagsText), madeDate: madeDate || undefined,
+        relId: relId === 'none' ? undefined : relId,
         date: new Date().toISOString(), author: user.nickname, authorId: user.id,
         visibility,
         fold: foldType === 'none' ? null : { type: foldType, label: foldType === 'custom' ? foldLabel : undefined },
@@ -144,6 +148,7 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
         images: imageIds, phList: files.length ? [] : x.phList,
         thumbCrop: files[0]?.crop,
         desc, category, tags: parseTags(tagsText), madeDate: madeDate || undefined, visibility,
+        relId: relId === 'none' ? undefined : relId,
         fold: foldType === 'none' ? null : { type: foldType, label: foldType === 'custom' ? foldLabel : undefined },
       } : x));
       toast('저장되었습니다');
@@ -235,6 +240,12 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
             <div className="form-row">
               <label className="k-label" style={{ width: 70 }}>태그</label>
               <KInput value={tagsText} onChange={e => setTagsText(e.target.value)} placeholder="쉼표로 구분" style={{ flex: 1 }} />
+            </div>
+            {/* 자관 연동 (v2.0 사용자 요청) — 갤러리 목록 오른쪽 자관 필터로 거를 수 있다 (게시판·TRPG 로그와 같은 방식) */}
+            <div className="form-row">
+              <label className="k-label" style={{ width: 70 }}>자관</label>
+              <KSelect minWidth={120} value={relId} onChange={setRelId}
+                options={[{ value: 'none', label: '자관 연동 없음' }, ...rels.map(r => ({ value: r.id, label: r.name }))]} />
             </div>
             <div className="form-row">
               <label className="k-label" style={{ width: 70 }}>제작일 (선택)</label>

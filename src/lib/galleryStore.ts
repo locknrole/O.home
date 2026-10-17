@@ -46,6 +46,8 @@ export interface BackupPost {
   fold: { type: FoldType; label?: string } | null;
   /** 태그 (v2.0 사용자 요청) — 목록·카드에 나열되고 검색에 걸린다 */
   tags?: string[];
+  /** 연동 자관 (v2.0 사용자 요청 — 게시판·TRPG 로그처럼 목록 오른쪽 자관 필터로 거른다). 없으면 「기타」 */
+  relId?: string;
 }
 
 export const BACKUP_SEED: BackupPost[] = [];
