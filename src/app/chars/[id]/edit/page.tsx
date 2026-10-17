@@ -82,6 +82,7 @@ function CharEditInner() {
                   specs: c.specs, tabs: c.tabs, basicHtml: c.basicHtml,
                   arts: c.arts, thumbId: c.thumbId, thumbCrop: c.thumbCrop,
                   fontId: c.fontId, nameSize: c.nameSize, nameBold: c.nameBold, bodyFontId: c.bodyFontId,
+                  artRatio: c.artRatio,
                 },
               },
             } : x)));

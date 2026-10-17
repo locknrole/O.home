@@ -323,3 +323,6 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
 .rel-gal .t{position:relative;aspect-ratio:4/3;border-radius:var(--radius-s,8px);overflow:hidden;cursor:var(--cur-pointer,pointer);background:var(--panel-solid)}
 .rel-gal .t:hover{opacity:.85}
 .rel-gal .fold{position:absolute;inset:0;display:grid;place-items:center;font-size:11px;letter-spacing:.1em;color:#fff;background:rgba(0,0,0,.35)}
+
+/* 캐릭터 상세 — 중앙 아트 1:1 정사각 (v2.0 사용자 요청, 캐릭터 수정의 「상세 아트 비율」) */
+.profile-center.sq{height:auto;min-height:0;aspect-ratio:1/1}

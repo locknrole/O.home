@@ -210,12 +210,14 @@ function CharDetailInner() {
         {/* 중앙 아트 — 스티키 · 추가 아트가 있으면 클릭으로 넘겨보기 */}
         {(() => {
           const arts = eff.arts && eff.arts.length > 0 ? eff.arts : (eff.artId ? [eff.artId] : []);
+          // 아트 모양 (v2.0 사용자 요청) — 1:1이면 정사각, 아니면 지금처럼 화면 높이에 맞춘 세로형
+          const sq = eff.artRatio === 'square' ? 'sq' : '';
           if (arts.length === 0 && !eff.artUrl) {
-            return <div className={`profile-center ph ${ch.thumbClass}`}><span>CHARACTER FULL ART</span></div>;
+            return <div className={`profile-center ph ${ch.thumbClass} ${sq}`}><span>CHARACTER FULL ART</span></div>;
           }
           const cur = Math.min(artIdx, arts.length - 1);
           return (
-            <div className="profile-center" ref={artBoxRef}
+            <div className={`profile-center ${sq}`} ref={artBoxRef}
               style={{ cursor: arts.length > 1 ? 'pointer' : undefined }}
               onClick={() => { if (arts.length > 1) setArtIdx(i => (i + 1) % arts.length); }}
               /* 대표 아트 우클릭 → 이 화면에 보일 위치 조정 (관리자, v2.0 사용자 확정) */
