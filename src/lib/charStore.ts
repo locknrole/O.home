@@ -413,6 +413,20 @@ export const CHAR_SEED: Character[] = [];
 
 export const REL_SEED: Relation[] = [];
 
+/* 글의 AU 선택 (v2.0 사용자 요청) — 갤러리·TRPG·게시판 글쓰기에서 자관 옆에 AU를 고른다.
+   목록 페이지는 자관으로만 거르고, 자관 상세에서만 AU별로 나눠 보인다. 'base' = 원래 설정 */
+/** 그 자관의 AU들 (원래 설정 제외) — 없으면 AU 칸을 띄우지 않는다 */
+export const relAusOf = (rels: Relation[], relId: string) =>
+  rels.find(r => r.id === relId)?.aus.filter(a => a.id !== 'base') ?? [];
+/** 자관을 고르면 기본으로 잡히는 AU — 그 자관의 첫 번째 AU, 없으면 원래 설정 */
+export const firstAuId = (rels: Relation[], relId: string) => relAusOf(rels, relId)[0]?.id ?? 'base';
+/** AU 선택 칸의 항목 */
+export const auOptions = (rels: Relation[], relId: string) =>
+  [{ value: 'base', label: '원래 설정' }, ...relAusOf(rels, relId).map(a => ({ value: a.id, label: a.label || 'AU' }))];
+/** 저장할 auId — 자관이 없거나 원래 설정이거나 지워진 AU면 비운다 */
+export const savedAuId = (rels: Relation[], relId: string, auId: string) =>
+  relId !== 'none' && auId !== 'base' && relAusOf(rels, relId).some(a => a.id === auId) ? auId : undefined;
+
 export const findChar = (chars: Character[], id: string) => chars.find(c => c.id === id);
 
 /* ---------- 페이지 주소 별명 (v2.0 사용자 요청) ---------- */

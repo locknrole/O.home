@@ -8,7 +8,7 @@ import { sectionHref, MAIN_SEC, secStamp, useSectionTitle } from '@/lib/sectionS
 import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
 import { TrpgLog, TRPG_SEED, TrpgLogBody, TRPG_BODY_SEED, bodyVisibility, showAsHtml, decodeLogText, logNo, saveLogBody } from '@/lib/galleryStore';
-import { Relation, REL_SEED, Character, CHAR_SEED, charGrant } from '@/lib/charStore';
+import { Relation, REL_SEED, Character, CHAR_SEED, charGrant, relAusOf, firstAuId, auOptions, savedAuId } from '@/lib/charStore';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { getBlob, putBlob, useBlobUrl } from '@/lib/blobStore';
 import { PageTitle, EditableDesc } from '@/components/ui/PageText';
@@ -102,7 +102,7 @@ export default function TrpgDetailPage() {
   const [eOpen, setEOpen] = useState(false);
   const [e, setE] = useState({
     noText: '', title: '', catchphrase: '', writer: '', withText: '',
-    relId: 'none', date: '', visibility: 'public' as TrpgLog['visibility'], password: '',
+    relId: 'none', auId: 'base', date: '', visibility: 'public' as TrpgLog['visibility'], password: '',
     listHidden: false,   // 목록 표시 여부 (v2.0 — 접근권한과 별개)
   });
   // 본문 교체
@@ -153,6 +153,7 @@ export default function TrpgDetailPage() {
       title: e.title.trim(), catchphrase: e.catchphrase.trim() || undefined,
       writer: e.writer.trim(), withText: e.withText.trim(),
       relId: e.relId === 'none' ? undefined : e.relId,
+      auId: savedAuId(rels, e.relId, e.auId),
       date: e.date || undefined,
       visibility: e.visibility, password: e.password.trim() || undefined,
       listHidden: e.listHidden,
@@ -328,7 +329,7 @@ html,body{margin:0!important;padding:0!important;height:auto!important;min-heigh
           {isAdmin && <button className="btn btn-dark" onClick={() => {
             setE({
               noText: l.noText ?? '', title: l.title, catchphrase: l.catchphrase ?? '', writer: l.writer,
-              withText: l.withText, relId: l.relId ?? 'none', date: l.date ?? '',
+              withText: l.withText, relId: l.relId ?? 'none', auId: l.auId ?? 'base', date: l.date ?? '',
               visibility: l.visibility, password: l.password ?? '', listHidden: !!l.listHidden,
             });
             // 본문·썸네일 교체 상태 초기화 (기본: 현재 것 유지)
@@ -429,8 +430,12 @@ html,body{margin:0!important;padding:0!important;height:auto!important;min-heigh
             <KInput placeholder="같이 간 사람 (선택)" value={e.withText} onChange={ev => setE(s => ({ ...s, withText: ev.target.value }))} />
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <KSelect minWidth={140} value={e.relId} onChange={v => setE(s => ({ ...s, relId: v }))}
+            <KSelect minWidth={140} value={e.relId} onChange={v => setE(s => ({ ...s, relId: v, auId: firstAuId(rels, v) }))}
               options={[{ value: 'none', label: '자관 연동 없음' }, ...rels.map(r => ({ value: r.id, label: r.name }))]} />
+            {/* 그 자관의 AU (v2.0) — 자관 상세에서 AU별로 나눠 보인다 */}
+            {relAusOf(rels, e.relId).length > 0 && (
+              <KSelect minWidth={110} value={e.auId} onChange={v => setE(s => ({ ...s, auId: v }))} options={auOptions(rels, e.relId)} />
+            )}
             <KDate value={e.date} onChange={v => setE(s => ({ ...s, date: v }))} style={{ flex: 1 }} />
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
