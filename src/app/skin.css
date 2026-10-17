@@ -129,6 +129,9 @@ html:not([data-scheme="custom"]) body::after{
 .g1-banner{display:block}
 @media (max-width:860px){
   .g1-banner{order:-1;flex:0 0 100%;width:100%;max-width:480px;margin:0 auto 10px}   /* 태블릿에서 너무 커지지 않게 */
+  /* 스크롤하면 위로 접혀 올라간다 (G1Banner .tucked) */
+  .g1-banner{max-height:160px;overflow:hidden;transition:max-height .35s ease,margin .35s ease,opacity .25s ease}
+  .g1-banner.tucked{max-height:0;margin-bottom:0;opacity:0}
 }
 @media (min-width:861px){
   .g1-banner{display:block;order:-1;margin:-10px -10px 22px}   /* 배너와 제목 사이 줄은 없앴다 (v2.0 사용자 요청) */
@@ -151,14 +154,14 @@ html[data-scheme="dark"] .brand-ico .alien{opacity:1;transform:none}
 
 /* 도구 줄 공통 */
 .side-tools{display:flex;align-items:center;gap:6px}
-.btn-scheme,.topbar .badge-dot{
+.btn-scheme,.btn-cat,.topbar .badge-dot{
   width:28px;height:28px;display:grid;place-items:center;flex:0 0 28px;
   border:1px solid var(--line);border-radius:6px;background:var(--wrap-sub);color:color-mix(in srgb,var(--top-fg) 60%,transparent);
   transition:color .2s,transform .5s ease;
 }
-.btn-scheme:hover,.topbar .badge-dot:hover{color:var(--top-fg)}
+.btn-scheme:hover,.btn-cat:hover,.topbar .badge-dot:hover{color:var(--top-fg)}
 .btn-scheme:active{transform:rotate(180deg)}
-.btn-scheme svg,.topbar .badge-dot svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;display:block}
+.btn-scheme svg,.btn-cat svg,.topbar .badge-dot svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;display:block}
 .user-chip{gap:7px;padding:2px 4px;font-size:calc(12px*var(--fs,1));min-width:0}
 .user-chip:hover{background:none}
 .user-chip .avatar{width:24px;height:24px;border-color:var(--line)}
@@ -185,6 +188,28 @@ html[data-scheme="dark"] .brand-ico .alien{opacity:1;transform:none}
   .grp.more{display:none}
   #appMain{background:var(--panel-solid)}
 }
+/* ---------- 모바일 카테고리 버튼·목록 (TopBar .btn-cat / .cat-pop) ---------- */
+.btn-cat{display:none}
+.btn-cat[aria-expanded="true"]{color:var(--top-fg);border-color:var(--primary-ink)}
+@media (max-width:860px){
+  .btn-cat{display:grid}
+  .topbar{position:sticky}   /* 목록(.cat-pop)이 상단 바 바로 아래에 붙는 기준 */
+  .cat-pop{
+    position:absolute;left:12px;right:12px;top:calc(100% + 6px);z-index:90;
+    max-height:70vh;overflow-y:auto;padding:6px;
+    background:var(--dd-bg);color:var(--dd-fg);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-dd);
+    animation:fade .15s;
+  }
+  .cat-pop button{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font-size:calc(13.5px*var(--fs,1));color:inherit}
+  .cat-pop button:hover,.cat-pop button.on{background:var(--hover)}
+  .cat-pop .cp-grp + .cp-grp,.cat-pop .cp-grp + button,.cat-pop button + .cp-grp{border-top:1px solid var(--line);margin-top:4px;padding-top:4px}
+  .cat-pop .cp-cap{padding:8px 12px 2px;font-size:calc(10.5px*var(--fs,1));font-weight:700;letter-spacing:.06em;color:color-mix(in srgb,var(--dd-fg) 55%,transparent)}
+  .cat-pop .cp-grp button{padding-left:20px}
+  .cat-pop .nd{color:var(--accent);font-size:7px;vertical-align:top;margin-left:4px}
+  /* 메인의 메뉴리스트 위젯도 숨긴다 — 카테고리는 이제 상단 바 버튼이 맡는다 (v2.0 사용자 요청) */
+  .main-grid .wgt[data-wtype="menu"]{display:none !important}
+}
+
 /* 모바일·태블릿(860px 이하)은 가로 카테고리 줄을 숨긴다 (v2.0 사용자 요청 — 「잘 작동 안 해서 그냥 숨겨 줘」).
    원래 O.HOME처럼 메뉴는 메인의 메뉴리스트 위젯이 맡는다 */
 @media (max-width:860px){
