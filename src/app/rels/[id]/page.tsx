@@ -1291,6 +1291,21 @@ export default function RelDetailPage() {
         )}
       </div>
 
+      {/* 게시판(백업·로그) 연동 — 역극·TRPG 칸보다 위에 (v2.0 사용자 요청) */}
+      <div className="g2" style={{ marginTop: 16 }}>
+        {relBoards.map(({ board: b, posts: bp }) => (
+          <div key={b.id} className="panel widget" style={{ margin: 0 }}>
+            <h4>{menuLabelOf(menuSet, boardHref(b.id)) ?? b.name} <span className="more" onClick={() => router.push(boardHref(b.id))}>더보기 ›</span></h4>
+            {bp.length > 0 ? bp.map(p => (
+              <div key={p.id} className="dday-row" style={{ cursor: 'var(--cur-pointer,pointer)' }} onClick={() => router.push(`/board/${p.id}`)}>
+                <span>{p.title}</span>
+                <b style={{ fontSize: 11, color: 'var(--faint)' }}>{p.date.slice(0, 10).replace(/-/g, '.')}</b>
+              </div>
+            )) : <p className="hint" style={{ margin: 0 }}>연동된 글이 없습니다 — 글쓰기에서 자관을 선택하면 여기에 표시</p>}
+          </div>
+        ))}
+      </div>
+
       {/* 역극 · 로그 연동 리스트 (4.5) — 역극: 내 참여 방 + 공개 전환된 완결 방.
           AU마다 숨길 수 있다 (v2.0 사용자 요청 — AU 관리의 체크박스). 둘 다 숨기면 칸 자체가 없다 */}
       {!(au?.hideRp && au?.hideLog) && (
@@ -1326,7 +1341,7 @@ export default function RelDetailPage() {
       </div>
       )}
 
-      {/* 갤러리 · 게시판 연동 (v2.0 사용자 요청) — 글쓰기에서 이 자관을 고른 글만. 칸 이름은 메뉴에 붙인 이름을 따른다 */}
+      {/* 갤러리 연동 (v2.0 사용자 요청) — 글쓰기에서 이 자관을 고른 그림만. 칸 이름은 메뉴에 붙인 이름을 따른다 */}
       <div className="panel widget" style={{ margin: '16px 0 0' }}>
         <h4>{menuLabelOf(menuSet, '/gallery') ?? '갤러리'} <span className="more" onClick={() => router.push('/gallery')}>더보기 ›</span></h4>
         {relGal.length > 0 ? (
@@ -1342,19 +1357,6 @@ export default function RelDetailPage() {
             ))}
           </div>
         ) : <p className="hint" style={{ margin: 0 }}>연동된 그림이 없습니다 — 갤러리 글쓰기에서 자관을 선택하면 여기에 표시</p>}
-      </div>
-      <div className="g2" style={{ marginTop: 16 }}>
-        {relBoards.map(({ board: b, posts: bp }) => (
-          <div key={b.id} className="panel widget" style={{ margin: 0 }}>
-            <h4>{menuLabelOf(menuSet, boardHref(b.id)) ?? b.name} <span className="more" onClick={() => router.push(boardHref(b.id))}>더보기 ›</span></h4>
-            {bp.length > 0 ? bp.map(p => (
-              <div key={p.id} className="dday-row" style={{ cursor: 'var(--cur-pointer,pointer)' }} onClick={() => router.push(`/board/${p.id}`)}>
-                <span>{p.title}</span>
-                <b style={{ fontSize: 11, color: 'var(--faint)' }}>{p.date.slice(0, 10).replace(/-/g, '.')}</b>
-              </div>
-            )) : <p className="hint" style={{ margin: 0 }}>연동된 글이 없습니다 — 글쓰기에서 자관을 선택하면 여기에 표시</p>}
-          </div>
-        ))}
       </div>
 
       {/* ---------- 멤버 추가 모달 ---------- */}

@@ -46,6 +46,9 @@ export interface Character {
   /** 상세 페이지 중앙 아트의 위치 (v2.0) — 리스트 썸네일과 보이는 크기·비율이 달라
    *  같은 크롭을 쓰면 원하는 부분이 안 나온다. 따로 잡으면 상세에서는 이 값을 쓴다. */
   artCrop?: import("@/components/ui/CropEditor").CropValue;
+  /** 상세 페이지 중앙 아트 모양 (v2.0 사용자 요청) — 'tall' 세로형(기본, 화면 높이에 맞춰 잘라 채움)
+   *  | 'fit' 가로 맞춤(가로폭에 맞추고 원래 비율 그대로, 안 자름) */
+  artRatio?: 'tall' | 'fit';
   arts?: string[];       // 아트 목록 (IndexedDB — 첫 장이 대표 풀 아트이자 썸네일 원본)
   artId?: string;        // (구) 단일 풀 아트
   artUrl?: string;       // (구) 풀 아트 URL
@@ -82,6 +85,7 @@ export interface AuCharProfile {
   thumbId?: string;
   thumbCrop?: import("@/components/ui/CropEditor").CropValue;
   artCrop?: import("@/components/ui/CropEditor").CropValue;   // 상세 중앙 아트 위치 (v2.0)
+  artRatio?: 'tall' | 'fit';   // 상세 중앙 아트 모양 (v2.0 사용자 요청)
   fontId?: string;
   nameSize?: number;     // 상세 큰 이름 크기 px (v2.0)
   nameBold?: boolean;    // 상세 큰 이름 굵게 (v2.0 사용자 요청 — 폰트에 따라 볼드가 안 어울린다)
@@ -111,11 +115,14 @@ export function charWithAu(c: Character, auKey?: string | null): Character {
     artId: p.arts?.[0],
     thumbId: p.thumbId,
     thumbCrop: p.thumbCrop,
+    // 상세 아트 위치도 그 AU 것만 — 여태 빠져 있어 AU에서 맞춘 위치 대신 원본 위치가 AU 그림에 쓰였다 (v2.0 수정)
+    artCrop: p.artCrop,
     ...(p.fontId !== undefined ? { fontId: p.fontId } : {}),
     ...(p.bodyFontId !== undefined ? { bodyFontId: p.bodyFontId } : {}),
     // nameSize는 여태 병합에 빠져 있었다 — AU에 저장은 되는데 표시가 base 크기를 따랐다 (v2.0 수정)
     ...(p.nameSize !== undefined ? { nameSize: p.nameSize } : {}),
     ...(p.nameBold !== undefined ? { nameBold: p.nameBold } : {}),
+    ...(p.artRatio !== undefined ? { artRatio: p.artRatio } : {}),
   };
 }
 

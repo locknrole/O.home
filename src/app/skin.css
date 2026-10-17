@@ -323,3 +323,7 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
 .rel-gal .t{position:relative;aspect-ratio:4/3;border-radius:var(--radius-s,8px);overflow:hidden;cursor:var(--cur-pointer,pointer);background:var(--panel-solid)}
 .rel-gal .t:hover{opacity:.85}
 .rel-gal .fold{position:absolute;inset:0;display:grid;place-items:center;font-size:11px;letter-spacing:.1em;color:#fff;background:rgba(0,0,0,.35)}
+
+/* 캐릭터 상세 — 중앙 아트 가로 맞춤 (v2.0 사용자 요청, 캐릭터 수정의 「상세 아트 비율」)
+   가로폭에 맞추고 높이는 그림 원래 비율대로 — 자르지 않는다 (모바일의 3:4 고정도 풀어 준다) */
+.profile-center.fit{height:auto;min-height:0;aspect-ratio:auto}
