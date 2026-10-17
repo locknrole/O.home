@@ -313,3 +313,7 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
 @media (prefers-reduced-motion:reduce){
   body::after,.brand-ico{animation:none !important}
 }
+
+/* 갤러리 자관 필터 드롭다운 — 옆 검색칸(35px)과 높이를 맞춘다 (gallery/page.tsx .rel-select) */
+.rel-select .k-select{min-width:0}
+.rel-select .k-select .cur{padding-top:7px;padding-bottom:7px;font-size:calc(12px*var(--fs,1))}
