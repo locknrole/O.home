@@ -1747,6 +1747,10 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
   .rel-center{order:-1}
   .rel-hero h1{font-size:calc(44px*var(--fs,1))}
   .rel-hero .quote{position:static;display:block;margin-top:4px}
+  /* 왼쪽 캐릭터 한마디가 맨 위(뱃지·자관명 위)에 뜨던 것 — 자관명·캐치프레이즈 아래로, 두 한마디를 나란히 (v2.0 사용자 요청) */
+  .rel-hero{display:flex;flex-direction:column}
+  .rel-hero .cp-top{order:0}.rel-hero h1{order:1}.rel-hero .catch{order:2}
+  .rel-hero .quote.l{order:3;margin-top:10px}.rel-hero .quote.r{order:4}
   .qa-wrap{grid-template-columns:1fr;height:auto}
   .qa-list{border-left:none;padding-left:0;max-height:300px}
 }
