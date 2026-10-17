@@ -39,6 +39,10 @@ const SunIcon = () => (
   <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v1.5M12 20v1.5M5.3 5.3l1 1M17.7 17.7l1 1M2.5 12H4M20 12h1.5M5.3 18.7l1-1M17.7 6.3l1-1" /></svg>
 );
 
+const ListIcon = () => (
+  <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10" /></svg>
+);
+
 const BellIcon = () => (
   <svg viewBox="0 0 24 24">
     <path d="M6 9.5a6 6 0 0 1 12 0c0 4.2 1.6 5.6 2.2 6.3H3.8C4.4 15.1 6 13.7 6 9.5Z" />
@@ -54,6 +58,10 @@ export function TopBar() {
   const toast = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  // 모바일 카테고리 목록 (v2.0 사용자 요청 — 「메인 말고는 모바일에서 메뉴를 볼 수가 없다」).
+  // 모바일·태블릿에서만 명암 버튼 옆에 버튼이 보이고(skin.css), 누르면 상단 바 아래로 목록이 펼쳐진다
+  const [catOpen, setCatOpen] = useState(false);
+  const catRef = useRef<HTMLDivElement>(null);
   const [menuSet, , menuLoaded] = useMenuSettings(); // 메뉴 관리 (5.2) — 노출·순서·이름
   const { boards, loaded: boardsLoaded } = useBoards(); // 다중 게시판 (5.2) — 게시판 그룹에 동적 반영
   const { map: secMap } = useSections();
@@ -67,6 +75,14 @@ export function TopBar() {
   const avatarSrc = useBlobUrl(user?.avatarUrl);     // 프로필 이미지 (마이페이지, v1.9)
   const userRef = useRef<HTMLDivElement>(null);
   const { scheme, toggleScheme } = useTheme();       // 방문자 라이트/다크 (UFO 스킨)
+
+  useEffect(() => {
+    if (!catOpen) return;
+    const close = (e: MouseEvent) => { if (!catRef.current?.contains(e.target as Node)) setCatOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [catOpen]);
+  useEffect(() => { setCatOpen(false); }, [pathname]);   // 다른 페이지로 가면 닫는다
 
   useEffect(() => {
     if (!menuOpen && !notifOpen) return;
@@ -236,6 +252,11 @@ export function TopBar() {
 
       {/* 도구 줄 (UFO 스킨) — 사이드바에서는 로고 아래 한 줄로 모인다 */}
       <div className="side-tools">
+      {/* 카테고리 목록 열기 — 모바일·태블릿 전용, 다크모드 버튼 왼쪽 (PC는 사이드바가 늘 보여 skin.css가 숨긴다) */}
+      <button className="btn-cat" aria-label="카테고리" aria-expanded={catOpen}
+        onClick={e => { e.stopPropagation(); setCatOpen(o => !o); }}>
+        <ListIcon />
+      </button>
       {/* 라이트/다크 전환 — 방문자 각자 (커스텀 테마면 관리자 색 그대로라 숨김) */}
       {scheme && (
         <button className="btn-scheme"
@@ -336,6 +357,28 @@ export function TopBar() {
         <button className="login-link" onClick={() => nav('/login')}>로그인</button>
       )}
       </div>
+
+      {/* 모바일 카테고리 목록 — 사이드바와 같은 메뉴(공개 범위·순서·이름 그대로). 고르면 이동하고 닫힌다 */}
+      {catOpen && (
+        <div className="cat-pop" ref={catRef}>
+          {menu.map(item =>
+            item.children ? (
+              <div className="cp-grp" key={item.label}>
+                <div className="cp-cap">{item.label}</div>
+                {item.children.map(c => (
+                  <button key={c.href} onClick={() => { setCatOpen(false); nav(c.href); }}>
+                    {c.label}{dotHrefs.has(c.href) && <small className="nd">●</small>}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <button key={item.label} className={pathname === item.href ? 'on' : ''}
+                onClick={() => { setCatOpen(false); nav(item.href!); }}>
+                {item.label}{dotHrefs.has(item.href!) && <small className="nd">●</small>}
+              </button>
+            ))}
+        </div>
+      )}
     </header>
   );
 }

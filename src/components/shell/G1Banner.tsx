@@ -41,8 +41,28 @@ export function G1Banner() {
     if (s != null) setScene(s);
   }, [pathname, board]);
 
+  /* 모바일·태블릿 — 본문을 아래로 스크롤하면 배너를 위로 접어 올리고, 맨 위로 돌아오면 다시 펼친다 (v2.0 사용자 요청).
+     상단 바가 늘 화면에 붙어 있어 배너가 자리를 계속 차지했다. 접힘 기준에 간격을 둬 경계에서 깜빡이지 않게.
+     PC는 배너가 사이드바에 있어 본문 스크롤과 무관 — skin.css가 모바일에서만 접힘을 적용한다 */
+  const [tucked, setTucked] = useState(false);
+  useEffect(() => {
+    const host = document.getElementById('appMain');
+    if (!host) return;
+    const onScroll = () => setTucked(t => {
+      if (t) return host.scrollTop > 4;
+      // 스크롤할 거리가 긴 페이지(400px 넘게)에서만 접는다 — 메인처럼 조금만 내려가는 페이지는 배너를 그대로 두고
+      // (사용자 요청), 짧은 페이지에서 접혔다 펴졌다 반복하지도 않게
+      return host.scrollTop > 40 && host.scrollHeight - host.clientHeight > 400;
+    });
+    onScroll();
+    host.addEventListener('scroll', onScroll, { passive: true });
+    return () => host.removeEventListener('scroll', onScroll);
+  }, []);
+  // 다른 페이지로 가면 새 페이지는 맨 위에서 시작하니 배너도 다시 펼친다
+  useEffect(() => { setTucked(false); }, [pathname]);
+
   return (
-    <div className="g1-banner" aria-hidden>
+    <div className={`g1-banner${tucked ? ' tucked' : ''}`} aria-hidden>
       <div className="g1-frame">
         {/* key — 장면이 바뀔 때 새로 띄워 그림 안의 등장 연출이 다시 돈다 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
