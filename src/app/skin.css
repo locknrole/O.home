@@ -124,8 +124,12 @@ html:not([data-scheme="custom"]) body::after{
 }
 
 /* ---------- 사이드바 상단 G1 배너 (components/shell/G1Banner.tsx) ----------
-   필름 액자 장면(256×76 비율)만 — 장면 이름·진행 점은 없앴다. 사이드바 안쪽 여백을 조금 넘겨 넓게 쓴다. 좁은 화면(상단 바)에서는 숨김 */
-.g1-banner{display:none}
+   필름 액자 장면(256×76 비율)만 — 장면 이름·진행 점은 없앴다. PC는 사이드바 맨 위(안쪽 여백을 조금 넘겨 넓게),
+   모바일·태블릿은 상단 바 맨 위에 화면 너비로 (v2.0 사용자 요청 — 「모바일에서도 보이게」) */
+.g1-banner{display:block}
+@media (max-width:860px){
+  .g1-banner{order:-1;flex:0 0 100%;width:100%;max-width:480px;margin:0 auto 10px}   /* 태블릿에서 너무 커지지 않게 */
+}
 @media (min-width:861px){
   .g1-banner{display:block;order:-1;margin:-10px -10px 22px}   /* 배너와 제목 사이 줄은 없앴다 (v2.0 사용자 요청) */
 }
