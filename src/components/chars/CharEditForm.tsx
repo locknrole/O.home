@@ -55,7 +55,7 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
   const [fontId, setFontId] = useState(initial?.fontId ?? 'serif');
   const [nameSize, setNameSize] = useState(initial?.nameSize ?? 38);   // 상세 큰 이름 크기 (v2.0)
   const [nameBold, setNameBold] = useState(initial?.nameBold ?? true); // 상세 이름 볼드 (v2.0 — 기본 켜짐)
-  const [artRatio, setArtRatio] = useState<'tall' | 'square'>(initial?.artRatio ?? 'tall'); // 상세 아트 모양 (v2.0)
+  const [artRatio, setArtRatio] = useState<'tall' | 'fit'>(initial?.artRatio === 'fit' ? 'fit' : 'tall'); // 상세 아트 모양 (v2.0)
   const [bodyFontId, setBodyFontId] = useState(initial?.bodyFontId ?? 'default');
   const [specs, setSpecs] = useState<SpecRow[]>(
     (initial?.specs ?? [{ label: '성별', value: '' }, { label: '키', value: '' }]).map(s => ({ ...s, id: newId() })));
@@ -340,11 +340,11 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
               <KCheck label="Bold" checked={nameBold} onChange={setNameBold} />
               <KStep value={nameSize} onChange={setNameSize} min={14} max={72} step={1} suffix="px" />
             </div>
-            {/* 상세 중앙 아트 모양 (v2.0 사용자 요청) — 세로형은 화면 높이에 맞춰 길게, 1:1은 정사각 */}
+            {/* 상세 중앙 아트 모양 (v2.0 사용자 요청) — 세로형은 화면 높이에 맞춰 잘라 채우고, 가로 맞춤은 안 자른다 */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span className="k-label" style={{ margin: 0, flex: 1 }}>상세 아트 비율</span>
-              <KSelect value={artRatio} onChange={v => setArtRatio(v as 'tall' | 'square')} minWidth={120}
-                options={[{ value: 'tall', label: '세로형 (기본)' }, { value: 'square', label: '1:1 정사각' }]} />
+              <KSelect value={artRatio} onChange={v => setArtRatio(v as 'tall' | 'fit')} minWidth={140}
+                options={[{ value: 'tall', label: '세로형 (기본)' }, { value: 'fit', label: '가로 맞춤 (안 자름)' }]} />
             </div>
             <p className="hint" style={{ margin: '2px 0 0' }}>본문 폰트 — 프로필 정보·소개 텍스트에 적용</p>
             <KSelect value={bodyFontId} onChange={setBodyFontId}

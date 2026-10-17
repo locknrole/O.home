@@ -210,19 +210,21 @@ function CharDetailInner() {
         {/* 중앙 아트 — 스티키 · 추가 아트가 있으면 클릭으로 넘겨보기 */}
         {(() => {
           const arts = eff.arts && eff.arts.length > 0 ? eff.arts : (eff.artId ? [eff.artId] : []);
-          // 아트 모양 (v2.0 사용자 요청) — 1:1이면 정사각, 아니면 지금처럼 화면 높이에 맞춘 세로형
-          const sq = eff.artRatio === 'square' ? 'sq' : '';
+          // 아트 모양 (v2.0 사용자 요청) — 가로 맞춤이면 가로폭에 맞춰 원래 비율 그대로(안 자름),
+          // 아니면 지금처럼 화면 높이에 맞춰 잘라 채운 세로형
+          const fit = eff.artRatio === 'fit';
           if (arts.length === 0 && !eff.artUrl) {
-            return <div className={`profile-center ph ${ch.thumbClass} ${sq}`}><span>CHARACTER FULL ART</span></div>;
+            return <div className={`profile-center ph ${ch.thumbClass}`}><span>CHARACTER FULL ART</span></div>;
           }
           const cur = Math.min(artIdx, arts.length - 1);
           return (
-            <div className={`profile-center ${sq}`} ref={artBoxRef}
+            <div className={`profile-center ${fit ? 'fit' : ''}`} ref={artBoxRef}
               style={{ cursor: arts.length > 1 ? 'pointer' : undefined }}
               onClick={() => { if (arts.length > 1) setArtIdx(i => (i + 1) % arts.length); }}
               /* 대표 아트 우클릭 → 이 화면에 보일 위치 조정 (관리자, v2.0 사용자 확정) */
               onContextMenu={e => {
-                if (!(isAdmin || charGrant(ch, user?.id) === 'edit') || cur !== 0) return;
+                // 가로 맞춤은 자르지 않으니 위치 조정이 필요 없다
+                if (fit || !(isAdmin || charGrant(ch, user?.id) === 'edit') || cur !== 0) return;
                 e.preventDefault();
                 setArtCtx({ x: e.clientX, y: e.clientY, ref: arts[0] });
               }}>
@@ -230,9 +232,12 @@ function CharDetailInner() {
                   리스트에서 맞춰 둔 위치와 다른 곳이 보였다 (대표 아트에만 적용) */}
               {/* 리스트 썸네일 크롭은 3:4 기준이라 여기(화면 높이에 따라 비율이 달라지는 영역)에는
                   맞지 않는다 — 여기서 따로 잡은 값이 있을 때만 쓰고, 없으면 가운데 기준 (v2.0) */}
-              <CroppedBlobImg fileRef={arts[cur] ?? eff.artUrl}
-                crop={cur === 0 ? eff.artCrop : undefined}
-                ph={ch.thumbClass} label="CHARACTER FULL ART" />
+              {fit
+                ? <BlobImg fileRef={arts[cur] ?? eff.artUrl} ph={ch.thumbClass} label="CHARACTER FULL ART"
+                  style={{ aspectRatio: '3/4' }} imgStyle={{ height: 'auto', objectFit: 'contain', display: 'block' }} />
+                : <CroppedBlobImg fileRef={arts[cur] ?? eff.artUrl}
+                  crop={cur === 0 ? eff.artCrop : undefined}
+                  ph={ch.thumbClass} label="CHARACTER FULL ART" />}
               {arts.length > 1 && (
                 <div style={{ position: 'absolute', left: 0, right: 0, bottom: 12, display: 'flex', justifyContent: 'center', gap: 5, zIndex: 3 }}>
                   {arts.map((_, i) => (
