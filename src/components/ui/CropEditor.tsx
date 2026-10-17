@@ -28,16 +28,55 @@ export function coverImgStyle(crop: CropValue | undefined, wide: boolean): React
   };
 }
 
+/** 다른 비율의 틀에서 잡은 크롭을 지금 틀에 옮긴다 (v2.0 사용자 제보 — AU 목록 정사각 칸에서 그림이 엉뚱하게 잘림).
+ *  크롭 값은 「틀 크기 대비 비율」이라 4:3 틀에서 잡은 값을 1:1 틀에 그대로 쓰면 다른 곳이 보인다.
+ *  그래서 원래 틀에서 보이던 영역의 **가운데 지점**과 **세로로 보이던 양**을 그림 기준으로 구해
+ *  새 틀에서도 그 영역이 보이도록 다시 계산한다. 새 틀이 그림 밖으로 나가지 않게 가운데를 조인다.
+ *  R = 그림 가로/세로, from = 크롭을 잡은 틀의 가로/세로, to = 지금 틀의 가로/세로 */
+export function adaptCrop(c: CropValue, R: number, from: number, to: number): CropValue {
+  // 원래 틀(세로 1 기준)에서의 그림 크기
+  const w1 = R >= from ? c.scale * R : c.scale * from;
+  const h1 = w1 / R;
+  const u = 0.5 - (c.x * from) / w1;   // 틀 가운데가 가리키던 그림 위 지점 (0~1)
+  const v = 0.5 - c.y / h1;
+  let vh = 1 / h1;                     // 세로로 보이던 비율
+  // 새 틀에서 같은 세로 양을 보여 주되, 가로가 그림을 넘으면 넘지 않게 줄인다
+  if (vh * to / R > 1) vh = R / to;
+  vh = Math.min(vh, 1);
+  const h2 = 1 / vh, w2 = h2 * R;      // 새 틀(세로 1 기준)에서의 그림 크기
+  const vw = to / w2;
+  const cu = Math.min(Math.max(u, vw / 2), 1 - vw / 2);
+  const cv = Math.min(Math.max(v, vh / 2), 1 - vh / 2);
+  const scale = R >= to ? h2 : w2 / to;
+  return { x: ((0.5 - cu) * w2) / to, y: (0.5 - cv) * h2, scale };
+}
+
+/** 크롭 없이 위쪽 기준으로 채우기 — 세로로 긴 그림을 가운데로 자르면 얼굴(윗부분)이 잘려서 (v2.0) */
+function topCrop(R: number, to: number): CropValue {
+  if (R >= to) return { x: 0, y: 0, scale: 1 };       // 가로로 긴 그림은 위아래가 안 잘린다
+  const h = to / R;                                    // 틀 세로 1 기준 그림 높이
+  return { x: 0, y: h / 2 - 0.5, scale: 1 };
+}
+
 /** 프레임 채움 크롭 이미지 — 컨테이너·원본 비율을 측정해 커버 방향을 자동 결정.
- *  부모는 position:relative(또는 absolute)여야 함. */
-export function CropImg({ src, crop, alt }: { src: string; crop?: CropValue; alt?: string }) {
+ *  부모는 position:relative(또는 absolute)여야 함.
+ *  from: 크롭을 잡은 틀의 비율(가로/세로) — 지금 틀과 다르면 adaptCrop으로 옮긴다.
+ *  anchorTop: 크롭이 없을 때 가운데 대신 위쪽 기준으로 */
+export function CropImg({ src, crop, alt, from, anchorTop }: {
+  src: string; crop?: CropValue; alt?: string; from?: number; anchorTop?: boolean;
+}) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const natRef = useRef<{ w: number; h: number } | null>(null);
-  const [wide, setWide] = useState<boolean | null>(null);
+  const [fit, setFit] = useState<{ wide: boolean; crop?: CropValue } | null>(null);
   const compute = () => {
     const r = wrapRef.current?.getBoundingClientRect();
     const n = natRef.current;
-    if (r && n && r.width > 1 && r.height > 1) setWide(n.w / n.h >= r.width / r.height);
+    if (!(r && n && r.width > 1 && r.height > 1)) return;
+    const R = n.w / n.h, to = r.width / r.height;
+    let c = crop;
+    if (c && from && Math.abs(from - to) > 0.01) c = adaptCrop(c, R, from, to);
+    else if (!c && anchorTop) c = topCrop(R, to);
+    setFit({ wide: R >= to, crop: c });
   };
   useEffect(() => {
     compute();
@@ -47,26 +86,30 @@ export function CropImg({ src, crop, alt }: { src: string; crop?: CropValue; alt
     ro.observe(el);
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src]);
+  }, [src, crop, from, anchorTop]);
   return (
     <div ref={wrapRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt={alt ?? ''} draggable={false}
         onLoad={e => { const im = e.currentTarget; natRef.current = { w: im.naturalWidth, h: im.naturalHeight }; compute(); }}
-        style={wide == null ? { opacity: 0 } : coverImgStyle(crop, wide)} />
+        style={fit == null ? { opacity: 0 } : coverImgStyle(fit.crop, fit.wide)} />
     </div>
   );
 }
 
 /** 파일 참조 + 크롭을 적용해 표시하는 썸네일 (없으면 플레이스홀더) */
-export function CroppedBlobImg({ fileRef, crop, ph, label, alt }: {
+export function CroppedBlobImg({ fileRef, crop, ph, label, alt, from, anchorTop }: {
   fileRef?: string; crop?: CropValue; ph?: string; label?: string; alt?: string;
+  /** 크롭을 잡은 틀의 비율(가로/세로) — 다른 비율 칸에 쓸 때 넘기면 같은 부분이 보이게 옮긴다 */
+  from?: number;
+  /** 크롭이 없을 때 위쪽 기준으로 채우기 (세로 그림의 얼굴이 잘리지 않게) */
+  anchorTop?: boolean;
 }) {
   const url = useBlobUrl(fileRef);
   if (!url) {
     return <div className={`ph ${ph ?? ''}`} style={{ width: '100%', height: '100%' }}>{label && <span>{label}</span>}</div>;
   }
-  return <CropImg src={url} crop={crop} alt={alt} />;
+  return <CropImg src={url} crop={crop} alt={alt} from={from} anchorTop={anchorTop} />;
 }
 
 export function CropEditor({ open, src, aspect, aspectLabel, initial, onClose, onApply }: {
