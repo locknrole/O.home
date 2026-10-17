@@ -342,3 +342,9 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
 @media (max-width:620px){
   .page-rel-detail .g2{grid-template-columns:1fr}
 }
+
+/* 캐릭터 상세 — 자관에서 들어왔을 때 「‹ 자관」「상대 캐릭터 ›」 (v2.0 사용자 요청) */
+.rel-nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.rel-nav button{height:28px;padding:0 12px;border:1px solid var(--line);border-radius:6px;background:var(--wrap-sub);color:var(--sub);font-size:calc(11.5px*var(--fs,1));letter-spacing:.04em;transition:.15s}
+.rel-nav button:hover{color:var(--primary,var(--accent));border-color:var(--primary,var(--accent))}
+.rel-nav button:first-child{margin-right:auto}
