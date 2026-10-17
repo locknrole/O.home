@@ -7,7 +7,7 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
-import { Character, CHAR_SEED, charGrant, charWithAu, chipBorder, Relation, REL_SEED , findByKey} from '@/lib/charStore';
+import { Character, CHAR_SEED, charGrant, charWithAu, chipBorder, Relation, REL_SEED , findByKey, charPath, relPath } from '@/lib/charStore';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { useFonts } from '@/lib/fontStore';
 import { useTheme } from '@/lib/ThemeProvider';
@@ -154,6 +154,31 @@ function CharDetailInner() {
             { label: 'CANCEL', kind: 'ghost', onClick: () => setDelAsk(false) },
           ]} />
       </div>
+      {/* 자관에서 들어왔을 때 (v2.0 사용자 요청) — 그 자관과 상대 캐릭터로 바로 가는 버튼.
+          자관 페이지가 ?rel= 을 붙여 보낸다(AU 프로필이면 ?au= 의 자관). 이 캐릭터가 그 자관 멤버일 때만 */}
+      {(() => {
+        const rid = params.get('rel') ?? auKey?.split(':')[0];
+        const r = rid ? rels.find(x => x.id === rid) : undefined;
+        if (!r || !r.members.some(m => m.charId === ch.id)) return null;
+        // 보고 있는 AU가 이 자관의 것이면 상대 캐릭터도 같은 AU로, 자관도 그 AU 탭으로
+        const relAu = auKey?.startsWith(`${r.id}:`) ? auKey : null;
+        const auQ = relAu ? `&au=${encodeURIComponent(relAu)}` : '';
+        const partners = r.members.filter(m => m.charId !== ch.id)
+          .map(m => chars.find(c => c.id === m.charId)).filter((c): c is Character => !!c);
+        const relName = (relAu && r.aus.find(a => `${r.id}:${a.id}` === relAu)?.name?.trim()) || r.name;
+        return (
+          <div className="rel-nav">
+            <button onClick={() => router.push(relAu ? `${relPath(r)}?au=${encodeURIComponent(relAu.split(':')[1])}` : relPath(r))}>
+              ‹ {relName}
+            </button>
+            {partners.map(p => (
+              <button key={p.id} onClick={() => router.push(`${charPath(p)}?rel=${encodeURIComponent(r.id)}${auQ}`)}>
+                {charWithAu(p, relAu).name} ›
+              </button>
+            ))}
+          </div>
+        );
+      })()}
       {/* AU 프로필 리스트 (v1.9) — 자관에 추가된 AU가 있으면 우상단, 각 AU의 저장 썸네일 기준 */}
       {charAus.length > 0 && (
         <div className="au-list" style={{ justifyContent: 'flex-end', marginBottom: 10 }}>

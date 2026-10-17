@@ -255,6 +255,11 @@ export default function RelDetailPage() {
   const [menuSet] = useMenuSettings();
   const [tab, setTab] = useState<'tl' | 'qa'>('tl');
   const [auId, setAuId] = useState('base');
+  // 캐릭터 페이지의 「‹ 자관」으로 돌아오면 보던 AU 그대로 (?au=AU id, v2.0)
+  useEffect(() => {
+    const a = new URLSearchParams(window.location.search).get('au');
+    if (a) setAuId(a);
+  }, []);
   const [oneMode, setOneMode] = useState<boolean | null>(null);
   const [qaNo, setQaNo] = useState<number | null>(null);
   const [qaQuery, setQaQuery] = useState('');
@@ -490,7 +495,9 @@ export default function RelDetailPage() {
   // 캐릭터 별명 주소 우선 (v2.0) — 없으면 id 그대로
   const charHref = (cid: string) => {
     const base = charPath(charOf(cid) ?? { id: cid });
-    return auCharKey ? `${base}?au=${encodeURIComponent(auCharKey)}` : base;
+    // ?rel= — 캐릭터 페이지에서 이 자관·상대 캐릭터로 돌아갈 버튼을 띄운다 (v2.0 사용자 요청)
+    const q = `rel=${encodeURIComponent(rel?.id ?? '')}`;
+    return auCharKey ? `${base}?${q}&au=${encodeURIComponent(auCharKey)}` : `${base}?${q}`;
   };
   const sideOf = (cid: string) => (isDuo && rel?.members[1]?.charId === cid ? 'r' : 'l');
 
