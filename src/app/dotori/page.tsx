@@ -113,7 +113,7 @@ function DotoriPageInner() {
             }}
             onClick={() => { if (isAdmin && !editOn) router.push(`/dotori/${it.id}/edit`); }}>
             <div className="th">
-              <CroppedBlobImg fileRef={it.imgId} crop={it.thumbCrop} ph={it.ph} />
+              <CroppedBlobImg thumb fileRef={it.imgId} crop={it.thumbCrop} ph={it.ph} />
               {/* 뱃지 — 공수표·일정 확정만, 이미지 우상단 (4.15) */}
               {(it.status === 'pledge' || it.status === 'confirmed') && (
                 <span className="dt-badge" style={dotoriBadgeStyle(trpgSet.statuses[it.status])}>

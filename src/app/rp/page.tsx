@@ -20,7 +20,7 @@ import { useToast } from '@/components/ui/Toast';
 function Face({ ch, className }: { ch?: Character; className: string }) {
   return (
     <div className={`${className} ${!ch?.thumbId ? `ph ${ch?.thumbClass ?? ''}` : ''}`}>
-      {ch?.thumbId && <CroppedBlobImg fileRef={ch.thumbId} crop={ch.thumbCrop} />}
+      {ch?.thumbId && <CroppedBlobImg thumb fileRef={ch.thumbId} crop={ch.thumbCrop} />}
     </div>
   );
 }

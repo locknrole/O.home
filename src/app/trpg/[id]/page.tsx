@@ -325,6 +325,8 @@ html,body{margin:0!important;padding:0!important;height:auto!important;min-heigh
         <PageTitle href={tt.href}>{tt.title}</PageTitle>
         <p>{logNo(l)}{[l.writer, l.withText].filter(Boolean).map(x => ` · ${x}`).join('')}{l.date ? ` · ${l.date.replace(/-/g, '.')}` : ''}</p>
         <div className="head-actions">
+          {/* 목록으로 (v2.0 사용자 요청) — 큰 제목을 눌러도 가지만 잘 안 보여서 버튼으로 */}
+          <button className="btn btn-dark btn-list" onClick={() => router.push(tt.href)}>‹ LIST</button>
           {rel && <button className="btn btn-dark" onClick={() => router.push(`/rels/${rel.id}`)}>{rel.name} ›</button>}
           {isAdmin && <button className="btn btn-dark" onClick={() => {
             setE({

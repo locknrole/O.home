@@ -51,7 +51,7 @@ export default function TCharsPage() {
               style={{ cursor: 'var(--cur-pointer,pointer)', ...(sort(i) as { style?: React.CSSProperties }).style }}
               onClick={() => { if (!editOn) router.push(`/tchars/${c.id}`); }}>
               <div className="main" style={{ cursor: 'var(--cur-pointer,pointer)' }}>
-                <CroppedBlobImg fileRef={face?.imgId} crop={faceCrop(c, face)} ph={face?.ph ?? c.ph} />
+                <CroppedBlobImg thumb fileRef={face?.imgId} crop={faceCrop(c, face)} ph={face?.ph ?? c.ph} />
                 {isAdmin && (
                   <div className="th-actions hv-actions">
                     <button onClick={e => { e.stopPropagation(); router.push(`/tchars/${c.id}/edit`); }}>EDIT</button>

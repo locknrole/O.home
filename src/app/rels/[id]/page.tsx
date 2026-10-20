@@ -67,7 +67,7 @@ function CharFace({ c, className, style }: {
   if (!rep) return <div className={`${className ?? ''} ph ${c?.thumbClass ?? ''}`} style={style} />;
   return (
     <div className={className} style={{ position: 'relative', overflow: 'hidden', ...style }}>
-      <CroppedBlobImg fileRef={rep} crop={c?.thumbCrop} />
+      <CroppedBlobImg thumb fileRef={rep} crop={c?.thumbCrop} />
     </div>
   );
 }
@@ -144,7 +144,7 @@ function MiniProf({ member, char, isAdmin, onGo, onRemove, auUnregistered, side,
             onClick={e => { e.stopPropagation(); setLb(0); }}>
             {/* 얼굴칸은 1:1 — 캐릭터의 3:4 썸네일 크롭을 그대로 쓰면 어긋나므로
                 자관에서 따로 잡아 둔 값이 있으면 그것을 쓴다 (우클릭 > 썸네일 위치) */}
-            <CroppedBlobImg fileRef={rep} crop={member.faceCrop ?? char.thumbCrop} />
+            <CroppedBlobImg thumb fileRef={rep} crop={member.faceCrop ?? char.thumbCrop} />
           </div>
         ) : (
           <div className={`face ph ${char.thumbClass}`} />
@@ -1042,7 +1042,7 @@ export default function RelDetailPage() {
                   onClick={() => router.push(charHref(m.charId))}>
                   <div className={`face ph ${c.thumbClass}`}>
                     {!unreg && (c.arts?.[0] ?? c.thumbId) && (
-                      <CroppedBlobImg fileRef={c.arts?.[0] ?? c.thumbId} crop={c.thumbCrop} ph={c.thumbClass} />
+                      <CroppedBlobImg thumb fileRef={c.arts?.[0] ?? c.thumbId} crop={c.thumbCrop} ph={c.thumbClass} />
                     )}
                   </div>
                   <div className="nm">
@@ -1364,7 +1364,7 @@ export default function RelDetailPage() {
               <div key={p.id} className="t" data-tip={p.title} onClick={() => router.push(`/gallery/${p.id}`)}>
                 {/* 접힌 글(스포일러·수위)은 흐리게만 — 들어가서 펼친다 */}
                 <div style={{ position: 'absolute', inset: 0, ...(p.fold ? { filter: 'blur(10px)' } : null) }}>
-                  <CroppedBlobImg fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} alt={p.title} />
+                  <CroppedBlobImg thumb fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} alt={p.title} />
                 </div>
                 {p.fold && <span className="fold">접힘</span>}
               </div>

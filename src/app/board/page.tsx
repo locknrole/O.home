@@ -13,7 +13,7 @@ import {
 } from '@/lib/boardStore';
 import { SearchBar, Pager } from '@/components/ui/Kit';
 import { Relation, REL_SEED } from '@/lib/charStore';
-import { CropImg } from '@/components/ui/CropEditor';
+import { CroppedBlobImg } from '@/components/ui/CropEditor';
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 
 const PER_PAGE = 10;
@@ -127,7 +127,7 @@ function BoardInner() {
                   <div className="bticket" key={p.id} onClick={() => { if (canRead(p)) router.push(`/board/${p.id}`); }}>
                     <div className="bt-thumb">
                       {thumb
-                        ? <CropImg src={thumb} crop={p.thumbSrc ? p.thumbCrop : undefined} />
+                        ? <CroppedBlobImg thumb fileRef={thumb} crop={p.thumbSrc ? p.thumbCrop : undefined} />
                         : <div className="bt-ph">{(canRead(p) ? p.title : 'SECRET').slice(0, 1).toUpperCase()}</div>}
                     </div>
                     <div className="bt-body">

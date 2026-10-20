@@ -391,9 +391,13 @@ export async function createFirebaseBackend(cfg: FirebaseCfg): Promise<Backend> 
       return out;
     },
 
-    async uploadFile(blob, ext) {
-      const path = `ohome/${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    async uploadFile(blob, ext, name) {
+      const path = name ? `ohome/${name}` : `ohome/${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const r = stMod.ref(storage, path);
+      if (name) {
+        // 내용 해시 이름 — 다른 날·다른 기기에서 올린 같은 그림이면 이미 있다. 다시 올리지 않는다
+        try { return await stMod.getDownloadURL(r); } catch { /* 없음(object-not-found) → 올린다 */ }
+      }
       // 경로가 업로드마다 고유하므로 내용이 바뀌지 않는다 — 길게 캐시해 재방문·엣지 캐시 이득을 본다
       // (지정하지 않으면 브라우저가 매번 다시 받아 먼 지역 버킷에서 지연이 그대로 드러남)
       await stMod.uploadBytes(r, blob, {
@@ -405,8 +409,15 @@ export async function createFirebaseBackend(cfg: FirebaseCfg): Promise<Backend> 
 
     async listFiles() {
       // 저장하는 주소가 다운로드 URL이므로 목록도 같은 형태로 돌려줘야 대조가 된다
-      const res = await stMod.listAll(stMod.ref(storage, 'ohome'));
-      return Promise.all(res.items.map(async it => {
+      // 하위 폴더(thumb/ 썸네일)까지 — listAll은 바로 아래 파일만 주고 폴더는 prefixes로 따로 준다
+      type SRef = ReturnType<typeof stMod.ref>;
+      const walk = async (dir: SRef): Promise<SRef[]> => {
+        const res = await stMod.listAll(dir);
+        const subs = await Promise.all(res.prefixes.map(walk));
+        return [...res.items, ...subs.flat()];
+      };
+      const items = await walk(stMod.ref(storage, 'ohome'));
+      return Promise.all(items.map(async it => {
         const [ref, meta] = await Promise.all([stMod.getDownloadURL(it), stMod.getMetadata(it)]);
         return { ref, size: meta.size ?? 0 };
       }));

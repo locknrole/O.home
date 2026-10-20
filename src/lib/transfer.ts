@@ -8,7 +8,10 @@
 // (문자열이 정확히 같을 때만 바꾸므로 엉뚱한 값이 변형될 일이 없다)
 import { backend, COLLECTION_OF, CONTENT_COLLECTIONS } from './backend';
 import type { Backend, ListItem } from './backend';
-import { allBlobs, getBlob, putBlobAs, putBlob } from './blobStore';
+import {
+  allBlobs, getBlob, putBlobAs, putBlob, fileKey, thumbUrlOf, makeThumb, THUMB_LIST_KEY, THUMB_MIN_SIZE,
+} from './blobStore';
+import type { ThumbList } from './blobStore';
 import { getSetting, setSetting, SETTING_KEYS, isLocalOnlySetting } from './settingStore';
 
 export interface Snapshot {
@@ -112,8 +115,114 @@ export async function findOrphanFiles(be: Backend): Promise<{ ref: string; size:
   // 회원 프로필 사진도 쓰이는 파일이다 (v2.0 사용자 제보) — 콘텐츠·설정만 훑던 시절
   // 어디에도 참조가 안 잡혀 「아무도 안 쓰는 파일」로 지워졌다
   collectRefs(snap.members ?? [], new Set(), used);
+  /* 주소 문자열 대신 버킷 안 경로로 대조한다 (v2.1) — 썸네일은 데이터에 주소가 없고
+     원본 이름(-t)에서 계산되며, 목록이 주는 주소와 token 꼬리가 다르다.
+     쓰이는 원본의 썸네일도 쓰이는 것으로 친다 → 원본이 정리될 때 썸네일도 함께 정리된다 */
+  const usedKeys = new Set<string>();
+  used.forEach(u => {
+    usedKeys.add(fileKey(u));
+    const t = thumbUrlOf(u);
+    if (t) usedKeys.add(fileKey(t));
+  });
   const all = await be.listFiles();
-  return all.filter(f => !used.has(f.ref));
+  return all.filter(f => !usedKeys.has(fileKey(f.ref)));
+}
+
+/* ---------- 기존 이미지 썸네일 만들기 (v2.1) ---------- */
+
+const OLD_IMG = /^ohome\/([a-z0-9]+\.(png|jpe?g|webp|avif|bmp))$/i;
+const TYPE_OF_EXT: Record<string, string> = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp',
+};
+
+/** 원본 받기 — 버킷 CORS가 막혀 있으면 같은 출처 중계(/api/font, 저장소 호스트만 허용)로 */
+async function fetchOriginal(ref: string): Promise<Blob | null> {
+  for (const url of [ref, `/api/font?u=${encodeURIComponent(ref)}`]) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return await res.blob();
+    } catch { /* 다음 방법으로 */ }
+  }
+  return null;
+}
+
+export interface BackfillResult { made: number; skipped: number; failed: number; total: number; savedBytes: number; stopped: boolean }
+
+/**
+ * 썸네일 기능 이전에 올린 이미지에 목록용 썸네일을 만든다 (환경설정 > 데이터 백업).
+ *
+ * 원본 파일·글 데이터는 건드리지 않는다 — thumb/<원래 파일명>에 사본을 올리고 그 이름을
+ * THUMB_LIST_KEY 설정에 적으면, 화면(thumbUrlOf)이 목록에서 사본을 쓴다.
+ * 원본을 한 번씩 내려받으므로 그만큼 다운로드 용량이 든다 — 지금 쓰이는 파일만 대상으로 한다.
+ * 중간에 멈추거나 실패해도 그때까지 만든 것은 적어 두므로, 다시 누르면 남은 것만 이어서 한다.
+ */
+export async function backfillThumbs(
+  be: Backend, onProgress?: Progress, shouldStop?: () => boolean,
+): Promise<BackfillResult> {
+  onProgress?.('저장소 파일 목록 읽는 중');
+  const files = await be.listFiles();
+  const keys = new Set(files.map(f => fileKey(f.ref)));
+
+  // 쓰이는 파일만 — 못 읽은 곳이 있으면 거르지 않는다(지우는 일이 아니라 위험하지 않다, 받는 양만 늘 뿐)
+  let usedKeys: Set<string> | null = null;
+  try {
+    const snap = await dumpAll(be, onProgress);
+    if (!snap.failed?.length) {
+      const used = new Set<string>();
+      collectRefs(snap.collections, new Set(), used);
+      collectRefs(snap.settings, new Set(), used);
+      collectRefs(snap.members ?? [], new Set(), used);
+      usedKeys = new Set([...used].map(fileKey));
+    }
+  } catch { /* 전체 대상으로 */ }
+
+  // 지난 기록 정리 — 원본(과 썸네일)이 아직 있는 것만 남긴다
+  const prev = getSetting<ThumbList | null>(THUMB_LIST_KEY, null);
+  const t = new Set((prev?.t ?? []).filter(n => keys.has(`ohome/${n}`) && keys.has(`ohome/thumb/${n}`)));
+  const n = new Set((prev?.n ?? []).filter(x => keys.has(`ohome/${x}`)));
+  const save = () => setSetting(THUMB_LIST_KEY, { t: [...t], n: [...n] } satisfies ThumbList);
+
+  const todo = files.filter(f => {
+    const k = fileKey(f.ref);
+    const m = OLD_IMG.exec(k);
+    if (!m || t.has(m[1]) || n.has(m[1])) return false;
+    if (usedKeys && !usedKeys.has(k)) return false;
+    return f.size >= THUMB_MIN_SIZE;
+  });
+
+  const r: BackfillResult = { made: 0, skipped: 0, failed: 0, total: todo.length, savedBytes: 0, stopped: false };
+  let next = 0, done = 0, unsaved = 0;
+  const worker = async () => {
+    while (next < todo.length) {
+      if (shouldStop?.()) { r.stopped = true; return; }
+      const f = todo[next++];
+      const name = OLD_IMG.exec(fileKey(f.ref))![1];
+      try {
+        let blob = await fetchOriginal(f.ref);
+        if (!blob) { r.failed += 1; continue; }
+        // 저장소가 형식을 안 알려 준 경우 — 확장자로 보정해야 makeThumb가 이미지로 본다
+        if (!blob.type.startsWith('image/')) {
+          blob = new Blob([blob], { type: TYPE_OF_EXT[name.split('.').pop()!.toLowerCase()] });
+        }
+        const thumb = await makeThumb(blob);
+        if (!thumb) { n.add(name); r.skipped += 1; }
+        else {
+          await be.uploadFile(thumb, '', `thumb/${name}`);
+          t.add(name);
+          r.made += 1;
+          r.savedBytes += blob.size - thumb.size;
+        }
+        if (++unsaved >= 10) { unsaved = 0; save(); }
+      } catch { r.failed += 1; }
+      finally {
+        done += 1;
+        onProgress?.('썸네일 만드는 중', done, todo.length);
+      }
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  save();
+  return r;
 }
 
 /* ---------- 덤프 ---------- */

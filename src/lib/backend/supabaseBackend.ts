@@ -250,38 +250,49 @@ export async function createSupabaseBackend(
       return out;
     },
 
-    async uploadFile(blob, ext) {
-      const path = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    async uploadFile(blob, ext, name) {
+      const path = name ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const { error } = await sb.storage.from(BUCKET)
-        // 경로가 업로드마다 고유 — 기본 1시간 대신 길게 캐시 (firebaseBackend와 동일 정책)
+        // 경로가 업로드마다 고유(또는 내용 해시) — 기본 1시간 대신 길게 캐시 (firebaseBackend와 동일 정책)
         .upload(path, blob, {
           contentType: blob.type || 'application/octet-stream',
           cacheControl: '31536000',
           upsert: false,
         });
-      if (error) throw error;
+      // 내용 해시 이름이 이미 있으면(409 · Duplicate) 같은 파일이다 — 그 주소를 그대로 쓴다
+      if (error && !(name && /exist|duplicate|409/i.test(
+        `${(error as { statusCode?: string }).statusCode ?? ''} ${error.message}`))) throw error;
       return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
     },
 
     async listFiles() {
       const out: { ref: string; size: number }[] = [];
       const PAGE = 100;
-      for (let offset = 0; ; offset += PAGE) {
-        const { data, error } = await sb.storage.from(BUCKET).list('', { limit: PAGE, offset });
-        if (error) throw error;
-        const rows = data ?? [];
-        rows.forEach(f => out.push({
-          ref: sb.storage.from(BUCKET).getPublicUrl(f.name).data.publicUrl,
-          size: (f.metadata as { size?: number } | null)?.size ?? 0,
-        }));
-        if (rows.length < PAGE) break;
-      }
+      // 하위 폴더(thumb/ 썸네일)까지 — 목록에서 폴더는 id가 null인 항목으로 나온다
+      const walk = async (dir: string): Promise<void> => {
+        for (let offset = 0; ; offset += PAGE) {
+          const { data, error } = await sb.storage.from(BUCKET).list(dir, { limit: PAGE, offset });
+          if (error) throw error;
+          const rows = data ?? [];
+          for (const f of rows) {
+            const path = dir ? `${dir}/${f.name}` : f.name;
+            if (f.id === null) { await walk(path); continue; }
+            out.push({
+              ref: sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,
+              size: (f.metadata as { size?: number } | null)?.size ?? 0,
+            });
+          }
+          if (rows.length < PAGE) break;
+        }
+      };
+      await walk('');
       return out;
     },
 
     async deleteFile(ref) {
-      // 저장한 값은 공개 URL — 버킷 안 파일명만 떼어 지운다
-      const name = decodeURIComponent(ref.split('?')[0].split('/').pop() ?? '');
+      // 저장한 값은 공개 URL — 버킷 안 경로(thumb/… 포함)만 떼어 지운다
+      const m = ref.split('?')[0].match(new RegExp(`/object/public/${BUCKET}/(.+)$`));
+      const name = decodeURIComponent(m ? m[1] : (ref.split('?')[0].split('/').pop() ?? ''));
       if (!name) return;
       const { error } = await sb.storage.from(BUCKET).remove([name]);
       if (error) throw error;

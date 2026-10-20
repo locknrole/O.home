@@ -12,7 +12,7 @@ import { BackupPost, BACKUP_SEED } from '@/lib/galleryStore';
 import { SearchBar, Pager, KSelect } from '@/components/ui/Kit';
 import { createPortal } from 'react-dom';
 import { CroppedBlobImg, CropEditor, CropValue } from '@/components/ui/CropEditor';
-import { useBlobUrl } from '@/lib/blobStore';
+import { useBlobUrl, useThumbSrc } from '@/lib/blobStore';
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 import { useMainStore } from '@/lib/mainStore';
 import { useCardSort, mergeOrder } from '@/lib/cardSort';
@@ -26,7 +26,7 @@ const FEED_STEP = 24;
 function GalleryCard({ p, folded, report, onUnveil }: {
   p: BackupPost; folded: boolean; report: (ratio: number) => void; onUnveil: () => void;
 }) {
-  const url = useBlobUrl(p.images[0]);
+  const [url, onThumbErr] = useThumbSrc(p.images[0]);   // 목록 카드는 썸네일로 (v2.1)
   const reported = useRef(false);
   const done = (r: number) => { if (!reported.current) { reported.current = true; report(r); } };
   // 「썸네일 수정」으로 크롭을 지정한 글은 원래 비율 대신 그 크롭(4:3)으로 보인다 (v2.0 사용자 요청)
@@ -47,12 +47,12 @@ function GalleryCard({ p, folded, report, onUnveil }: {
     <>
       <div className={`gm-img ${folded ? 'veil' : ''}`}>
         {cropped
-          ? <CroppedBlobImg fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} alt={p.title} />
+          ? <CroppedBlobImg thumb fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} alt={p.title} />
           : url
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={url} alt={p.title} draggable={false}
             onLoad={e => done(e.currentTarget.naturalHeight / e.currentTarget.naturalWidth)}
-            onError={() => done(0.75)} />
+            onError={() => { if (onThumbErr) onThumbErr(); else done(0.75); }} />
           : <div className={`ph ${p.phList[0] ?? 'cool'}`} style={{ width: '100%', height: '100%' }} />}
         {/* 유형 뱃지(로그/단일 …)는 리스트에서 뺐다 (v2.0 사용자 요청) — 상세에는 그대로 */}
         {count(p) > 1 && <span className="gm-cnt">{count(p)}</span>}
@@ -206,7 +206,7 @@ function BackupPageInner() {
           {paged.map(p => (
             <div key={p.id} className="list-item" onClick={() => router.push(`/gallery/${p.id}`)}
               onContextMenu={e => onCtx(e, p)}>
-              <div className="th" style={{ position: 'relative' }}><CroppedBlobImg fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} /></div>
+              <div className="th" style={{ position: 'relative' }}><CroppedBlobImg thumb fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <b>
                   {p.title}

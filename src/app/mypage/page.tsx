@@ -13,7 +13,7 @@ import { RoadItem, ROAD_SEED } from '@/lib/galleryStore';
 import { useBoards } from '@/lib/boardStore';
 import { collectMyItems, MyItem } from '@/lib/myActivity';
 import { CroppedBlobImg } from '@/components/ui/CropEditor';
-import { putBlob, useBlobUrl, promoteToStorage } from '@/lib/blobStore';
+import { putBlob, useThumbSrc, promoteToStorage } from '@/lib/blobStore';
 import { KInput } from '@/components/ui/Kit';
 import { Modal } from '@/components/ui/Modal';
 import { ColorField } from '@/components/ui/ColorField';
@@ -40,7 +40,7 @@ export default function MyPage() {
   const [newPw, setNewPw] = useState('');
   const [newPw2, setNewPw2] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
-  const avatarSrc = useBlobUrl(user?.avatarUrl);
+  const [avatarSrc, avatarErr] = useThumbSrc(user?.avatarUrl);   // 작은 원이라 썸네일로 (v2.1)
   // 프로필 이미지 선택 모달 (v1.9) — 단색 / 이미지 업로드 / 기본
   const [avOpen, setAvOpen] = useState(false);
   const [avColor, setAvColor] = useState('#6b7280');
@@ -142,7 +142,7 @@ export default function MyPage() {
               }} onClick={() => { setAvColor(user.avatarColor ?? '#6b7280'); setAvOpen(true); }} data-tip="프로필 이미지 변경"
                 {...fileDrop(fl => changeAvatar(fl[0]))}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {avatarSrc && <img src={avatarSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                {avatarSrc && <img src={avatarSrc} alt="" onError={avatarErr} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
               </div>
               <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
                 onChange={e => { changeAvatar(e.target.files?.[0]); e.target.value = ''; }} />
@@ -203,7 +203,7 @@ export default function MyPage() {
                     cursor: 'var(--cur-pointer,pointer)', background: c.color, border: '1px solid var(--line)',
                   }}>
                   {(c.thumbId ?? c.arts?.[0]) && (
-                    <CroppedBlobImg fileRef={c.thumbId ?? c.arts?.[0]} crop={c.thumbCrop} ph={c.thumbClass} />
+                    <CroppedBlobImg thumb fileRef={c.thumbId ?? c.arts?.[0]} crop={c.thumbCrop} ph={c.thumbClass} />
                   )}
                 </div>
               ))}

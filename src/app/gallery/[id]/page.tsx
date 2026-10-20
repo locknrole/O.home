@@ -56,7 +56,7 @@ export default function BackupDetailPage() {
     if (u) {
       // eslint-disable-next-line @next/next/no-img-element
       // 원본보다 크게 늘리지 않는다 — 폭이 모자랄 때만 줄이고, 작은 그림은 작은 그대로 (v2.0 사용자 확정)
-      return <img src={u} alt="" style={natural
+      return <img src={u} alt="" loading="lazy" decoding="async" style={natural
         ? { maxWidth: '100%', maxHeight: '100%', display: 'block' }
         : { maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto' }} />;
     }
@@ -74,6 +74,8 @@ export default function BackupDetailPage() {
           {(p.tags ?? []).map(t => <i key={t} className="tag-in">#{t}</i>)}
         </p>
         <div className="head-actions">
+          {/* 목록으로 (v2.0 사용자 요청) — 큰 제목을 눌러도 가지만 잘 안 보여서 버튼으로 */}
+          <button className="btn btn-dark btn-list" onClick={() => router.push(tt.href)}>‹ LIST</button>
           {canManage && <button className="btn btn-dark" onClick={() => router.push(`/gallery/${p.id}/edit`)}>EDIT</button>}
           {canManage && <button className="btn btn-dark" onClick={() => setDelAsk(true)}>DELETE</button>}
         </div>

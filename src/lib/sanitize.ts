@@ -5,9 +5,23 @@ import { marked } from 'marked';
 
 export type PostMode = 'md' | 'html';
 
+/* 본문 이미지는 화면에 가까워질 때 받는다 (v2.1) — 이미지 많은 글을 열면 맨 아래 그림까지
+   한꺼번에 내려받아 저장소 다운로드 요금이 컸다. 걸러 낸 HTML에 붙이므로 저장된 본문은 그대로다 */
+let lazyHook = false;
+function ensureLazyHook() {
+  if (lazyHook) return;
+  lazyHook = true;
+  DOMPurify.addHook('afterSanitizeAttributes', node => {
+    if (node.tagName !== 'IMG') return;
+    if (!node.hasAttribute('loading')) node.setAttribute('loading', 'lazy');
+    if (!node.hasAttribute('decoding')) node.setAttribute('decoding', 'async');
+  });
+}
+
 export function sanitizeHtml(html: string): string {
   // DOMPurify는 브라우저 DOM 필요 — SSR 프리렌더 시 빈 값 (클라이언트에서 렌더됨)
   if (typeof window === 'undefined') return '';
+  ensureLazyHook();
   return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
     ADD_ATTR: ['style', 'target', 'align'],   // 스타일 자유 (6.3)

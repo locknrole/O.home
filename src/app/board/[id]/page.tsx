@@ -153,6 +153,8 @@ export default function BoardDetailPage() {
         <PageTitle href={boardHref(board.id)}>{boardTitle}</PageTitle>
         <p>{post.notice ? '공지 · ' : `${post.category} · `}{post.author} · {fmtDate(post.date)}</p>
         <div className="head-actions">
+          {/* 목록으로 (v2.0 사용자 요청) — 큰 제목을 눌러도 가지만 잘 안 보여서 버튼으로 */}
+          <button className="btn btn-dark btn-list" onClick={() => router.push(boardHref(board.id))}>‹ LIST</button>
           {/* 수정은 작성자 본인만 — 관리자도 타인 글은 삭제만 (v1.9) */}
           {isAuthor && (
             <button className="btn btn-dark" onClick={() => router.push(`/board/write?edit=${post.id}`)}>EDIT</button>

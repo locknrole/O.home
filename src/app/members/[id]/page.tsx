@@ -13,7 +13,7 @@ import { Character, CHAR_SEED, charGrant } from '@/lib/charStore';
 import { RoadItem, ROAD_SEED } from '@/lib/galleryStore';
 import { useBoards } from '@/lib/boardStore';
 import { collectMyItems } from '@/lib/myActivity';
-import { useBlobUrl } from '@/lib/blobStore';
+import { useThumbSrc } from '@/lib/blobStore';
 import { CroppedBlobImg } from '@/components/ui/CropEditor';
 import { PageTitle } from '@/components/ui/PageText';
 import { getSetting } from '@/lib/settingStore';
@@ -50,7 +50,7 @@ export default function MemberDetailPage() {
     }
     setTags(getSetting<Record<string, string[]>>('ohome.membertags.v1', {})[id] ?? []);
   }, [id, members]);
-  const avatarSrc = useBlobUrl(member?.avatarUrl);
+  const [avatarSrc, avatarErr] = useThumbSrc(member?.avatarUrl);   // 작은 원이라 썸네일로 (v2.1)
 
   if (member === undefined) return <section className="page" />;
   if (!isAdmin) {
@@ -91,7 +91,7 @@ export default function MemberDetailPage() {
             background: avatarSrc ? undefined : (member.avatarColor ?? 'linear-gradient(135deg,#6b7280,#3c434d)'),
           }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {avatarSrc && <img src={avatarSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            {avatarSrc && <img src={avatarSrc} alt="" onError={avatarErr} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -113,7 +113,7 @@ export default function MemberDetailPage() {
               <div key={c.id} onClick={() => router.push(`/chars/${c.id}`)}
                 style={{ display: 'flex', gap: 8, alignItems: 'center', border: '1px solid var(--line)', borderRadius: 10, padding: '6px 12px 6px 6px', cursor: 'var(--cur-pointer,pointer)' }}>
                 <div className={`ph ${c.thumbClass}`} style={{ width: 34, height: 34, borderRadius: 8, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
-                  {(c.thumbId ?? c.arts?.[0]) && <CroppedBlobImg fileRef={c.thumbId ?? c.arts?.[0]} crop={c.thumbCrop} ph={c.thumbClass} />}
+                  {(c.thumbId ?? c.arts?.[0]) && <CroppedBlobImg thumb fileRef={c.thumbId ?? c.arts?.[0]} crop={c.thumbCrop} ph={c.thumbClass} />}
                 </div>
                 <b style={{ fontSize: 12.5 }}>{c.name}</b>
                 <small style={{ color: 'var(--faint)', fontSize: 10.5 }}>{level === 'edit' ? '편집까지' : '역극 플레이'}</small>

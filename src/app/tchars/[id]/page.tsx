@@ -18,7 +18,7 @@ function StandingImg({ imgId, ph }: { imgId?: string; ph: string }) {
   const url = useBlobUrl(imgId);
   if (!url) return <div className={`ph ${ph}`} style={{ position: 'absolute', inset: 0 }} />;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} alt="" style={{ maxWidth: '100%', display: 'block' }} />;
+  return <img src={url} alt="" loading="lazy" decoding="async" style={{ maxWidth: '100%', display: 'block' }} />;
 }
 
 export default function TCharDetailPage() {
@@ -79,7 +79,7 @@ export default function TCharDetailPage() {
                 <div key={f.id} className={`fc ${i === faceIdx ? 'on' : ''}`}
                   data-tip={f.label || undefined}
                   onClick={() => setFaceIdx(i)}>
-                  <CroppedBlobImg fileRef={f.imgId} crop={faceCrop(c, f)} ph={f.ph ?? c.ph} />
+                  <CroppedBlobImg thumb fileRef={f.imgId} crop={faceCrop(c, f)} ph={f.ph ?? c.ph} />
                 </div>
               ))}
             </div>
