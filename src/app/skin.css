@@ -348,3 +348,6 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
 .rel-nav button{height:28px;padding:0 12px;border:1px solid var(--line);border-radius:6px;background:var(--wrap-sub);color:var(--sub);font-size:calc(11.5px*var(--fs,1));letter-spacing:.04em;transition:.15s}
 .rel-nav button:hover{color:var(--primary,var(--accent));border-color:var(--primary,var(--accent))}
 .rel-nav button:first-child{margin-right:auto}
+
+/* 상세 페이지 「‹ LIST」 — 버튼 줄이 화면 폭을 다 쓰는 모바일에선 왼쪽 끝에 붙이고 나머지는 오른쪽 (v2.0 사용자 요청) */
+.head-actions .btn-list{margin-right:auto}

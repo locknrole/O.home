@@ -74,6 +74,8 @@ export default function BackupDetailPage() {
           {(p.tags ?? []).map(t => <i key={t} className="tag-in">#{t}</i>)}
         </p>
         <div className="head-actions">
+          {/* 목록으로 (v2.0 사용자 요청) — 큰 제목을 눌러도 가지만 잘 안 보여서 버튼으로 */}
+          <button className="btn btn-dark btn-list" onClick={() => router.push(tt.href)}>‹ LIST</button>
           {canManage && <button className="btn btn-dark" onClick={() => router.push(`/gallery/${p.id}/edit`)}>EDIT</button>}
           {canManage && <button className="btn btn-dark" onClick={() => setDelAsk(true)}>DELETE</button>}
         </div>
