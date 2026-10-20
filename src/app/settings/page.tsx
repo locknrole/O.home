@@ -56,7 +56,7 @@ import type { BackendConfig, BackendKind } from '@/lib/backend/types';
 import { CONTENT_COLLECTIONS } from '@/lib/backend/types';
 import { visFloorOf } from '@/lib/visFloor';
 import { validateConfig, configFileText, saveLocalConfig, parseFirebaseSnippet, serverConfig, serverConfigSource } from '@/lib/serverConfig';
-import { migrateTo, findOrphanFiles } from '@/lib/transfer';
+import { migrateTo, findOrphanFiles, backfillThumbs } from '@/lib/transfer';
 import { FIRESTORE_RULES, STORAGE_RULES } from '@/lib/firebaseRules';
 import { SCHEMA_SQL } from '@/lib/schemaSql';
 import { PushAdminRow } from '@/components/shell/PushSettings';
@@ -1619,6 +1619,30 @@ function DataPane() {
     toast(`이미지 ${n}개를 지웠습니다`);
   };
 
+  /* 기존 이미지 썸네일 만들기 (v2.1) — 썸네일 기능 이전에 올린 이미지는 목록에서도 원본(수 MB)을 받는다.
+     원본을 한 번씩 받아 작은 사본을 만들어 두면 그 뒤로는 목록이 사본만 받는다 */
+  const [thumbBusy, setThumbBusy] = useState(false);
+  const [thumbMsg, setThumbMsg] = useState('');
+  const thumbStop = useRef(false);
+  const runThumbs = async () => {
+    const be = backend();
+    if (!be) { toast('서버에 연결돼 있지 않습니다'); return; }
+    thumbStop.current = false;
+    setThumbBusy(true); setThumbMsg('');
+    try {
+      const r = await backfillThumbs(be, (m, done, total) => setThumbMsg(total ? `${m} ${done}/${total}` : m),
+        () => thumbStop.current);
+      const mb = (r.savedBytes / 1048576).toFixed(1);
+      setThumbMsg(r.total ? `만듦 ${r.made} · 필요 없음 ${r.skipped}${r.failed ? ` · 실패 ${r.failed}` : ''}` : '만들 것 없음');
+      toast(r.total === 0 ? '썸네일을 만들 이미지가 없습니다'
+        : `${r.stopped ? '멈춤 — ' : ''}썸네일 ${r.made}개를 만들었습니다 (목록 한 번에 ${mb}MB 덜 받음)`
+          + (r.failed ? ` · ${r.failed}개는 받지 못했습니다 — 다시 누르면 이어서 합니다` : ''));
+    } catch (e) {
+      toast(e instanceof Error && e.message ? e.message : '썸네일을 만들지 못했습니다');
+    }
+    setThumbBusy(false);
+  };
+
   /* 어디에도 안 걸린 상대 캐릭터 정리 (v2.0 사용자 요청).
      자관을 지워도 그 자관에서 만든 상대 캐릭터는 남는다. **일부러 그렇게 둔다** — 실수로 자관을
      지웠을 때 캐릭터까지 사라지면 되돌릴 방법이 없기 때문(사용자 판단). 대신 정말 아무 자관에도
@@ -1777,6 +1801,20 @@ function DataPane() {
               <button className="btn btn-accent" style={{ padding: '9px 18px', opacity: scanning ? 0.5 : 1 }}
                 disabled={scanning} onClick={() => setCleanAsk(true)}>{orphans.length}개 지우기</button>
             )}
+          </div>
+        </div>
+      )}
+      {/* 기존 이미지 썸네일 만들기 (v2.1) — 원본·글은 그대로, 목록용 작은 사본만 추가 */}
+      {serverOn && (
+        <div className="set-row" style={{ flexWrap: 'wrap' }}>
+          <div className="l"><b>기존 이미지 썸네일 만들기</b>
+            <small>예전에 올린 이미지도 목록에서 작은 사본을 쓰게 합니다 — 원본을 한 번씩 내려받으므로 그만큼 다운로드 용량이 듭니다(위 정리를 먼저 하면 덜 받습니다). 멈춰도 다시 누르면 이어서 합니다</small></div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {thumbMsg && <span className="hint">{thumbMsg}</span>}
+            {thumbBusy
+              ? <button className="btn btn-ghost" style={{ padding: '9px 18px' }}
+                  onClick={() => { thumbStop.current = true; }}>멈추기</button>
+              : <button className="btn btn-ghost" style={{ padding: '9px 18px' }} onClick={runThumbs}>만들기</button>}
           </div>
         </div>
       )}

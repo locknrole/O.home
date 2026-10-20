@@ -6,7 +6,10 @@
 // 잘려나가는 영역이 없어, 이동하면 원본의 어느 부분이든 볼 수 있음.
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
-import { useBlobUrl } from '@/lib/blobStore';
+import { useThumbSrc } from '@/lib/blobStore';
+
+/** 이보다 크게 확대한 크롭은 썸네일(짧은 변 640px)로는 흐려진다 — 원본을 쓴다 */
+const THUMB_MAX_ZOOM = 1.6;
 
 /** x·y = 프레임 크기 대비 중심 오프셋 비율 (-0.5~0.5 근방), scale = 배율 */
 export interface CropValue { x: number; y: number; scale: number }
@@ -62,8 +65,10 @@ function topCrop(R: number, to: number): CropValue {
  *  부모는 position:relative(또는 absolute)여야 함.
  *  from: 크롭을 잡은 틀의 비율(가로/세로) — 지금 틀과 다르면 adaptCrop으로 옮긴다.
  *  anchorTop: 크롭이 없을 때 가운데 대신 위쪽 기준으로 */
-export function CropImg({ src, crop, alt, from, anchorTop }: {
+export function CropImg({ src, crop, alt, from, anchorTop, onError }: {
   src: string; crop?: CropValue; alt?: string; from?: number; anchorTop?: boolean;
+  /** 썸네일이 안 받아질 때 원본으로 바꾸는 데 쓴다 (useThumbSrc) */
+  onError?: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const natRef = useRef<{ w: number; h: number } | null>(null);
@@ -90,7 +95,7 @@ export function CropImg({ src, crop, alt, from, anchorTop }: {
   return (
     <div ref={wrapRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt ?? ''} draggable={false}
+      <img src={src} alt={alt ?? ''} draggable={false} loading="lazy" decoding="async" onError={onError}
         onLoad={e => { const im = e.currentTarget; natRef.current = { w: im.naturalWidth, h: im.naturalHeight }; compute(); }}
         style={fit == null ? { opacity: 0 } : coverImgStyle(fit.crop, fit.wide)} />
     </div>
@@ -98,18 +103,20 @@ export function CropImg({ src, crop, alt, from, anchorTop }: {
 }
 
 /** 파일 참조 + 크롭을 적용해 표시하는 썸네일 (없으면 플레이스홀더) */
-export function CroppedBlobImg({ fileRef, crop, ph, label, alt, from, anchorTop }: {
+export function CroppedBlobImg({ fileRef, crop, ph, label, alt, from, anchorTop, thumb }: {
   fileRef?: string; crop?: CropValue; ph?: string; label?: string; alt?: string;
   /** 크롭을 잡은 틀의 비율(가로/세로) — 다른 비율 칸에 쓸 때 넘기면 같은 부분이 보이게 옮긴다 */
   from?: number;
   /** 크롭이 없을 때 위쪽 기준으로 채우기 (세로 그림의 얼굴이 잘리지 않게) */
   anchorTop?: boolean;
+  /** 목록 칸처럼 작게 보이는 자리 — 썸네일로 받는다 (v2.1). 크게 확대한 크롭은 흐려지므로 원본 유지 */
+  thumb?: boolean;
 }) {
-  const url = useBlobUrl(fileRef);
+  const [url, onError] = useThumbSrc(fileRef, !!thumb && (crop?.scale ?? 1) <= THUMB_MAX_ZOOM);
   if (!url) {
     return <div className={`ph ${ph ?? ''}`} style={{ width: '100%', height: '100%' }}>{label && <span>{label}</span>}</div>;
   }
-  return <CropImg src={url} crop={crop} alt={alt} from={from} anchorTop={anchorTop} />;
+  return <CropImg src={url} crop={crop} alt={alt} from={from} anchorTop={anchorTop} onError={onError} />;
 }
 
 export function CropEditor({ open, src, aspect, aspectLabel, initial, onClose, onApply }: {

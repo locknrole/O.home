@@ -64,7 +64,7 @@ function PostImgs({ p, onOpen }: { p: ThreadPost; onOpen: (ids: string[], idx: n
   return (
     <div className={`thr-imgs ${n === 1 ? 'one' : n === 3 ? 'three' : ''}`}>
       {ids.map((id, i) => (
-        <div key={id} className="im" onClick={() => onOpen(ids, i)}><BlobImg fileRef={id} /></div>
+        <div key={id} className="im" onClick={() => onOpen(ids, i)}><BlobImg thumb fileRef={id} /></div>
       ))}
       {phs.map((ph, i) => <div key={i} className={`im ph ${ph}`} />)}
     </div>
@@ -302,7 +302,7 @@ function ThreadsPageInner() {
               /* 우클릭 → 메뉴 → 삭제 확인 모달 (v2.0 사용자 요청) — 리스트 보기에는 삭제 버튼이 없었다 */
               onContextMenu={e => { if (!isAdmin) return; e.preventDefault(); setWCtx({ x: e.clientX, y: e.clientY, id: w.id }); }}>
               <div className="th">
-                <CroppedBlobImg fileRef={w.posterId} crop={w.posterCrop} ph={w.ph} />
+                <CroppedBlobImg thumb fileRef={w.posterId} crop={w.posterCrop} ph={w.ph} />
                 <span className="pill dark" style={threadBadgeStyle(cats.find(c => c.id === w.catId))}>
                   {catLabel(cats, w.catId)}
                 </span>
@@ -467,7 +467,7 @@ function ThreadsPageInner() {
                 /* 우클릭 → 메뉴 → 삭제 확인 모달 (v2.0 사용자 요청) — 타래 보기의 오른쪽 카드에서도 */
                 onContextMenu={e => { if (!isAdmin) return; e.preventDefault(); setWCtx({ x: e.clientX, y: e.clientY, id: w.id }); }}>
                 <div className="th">
-                  <CroppedBlobImg fileRef={w.posterId} crop={w.posterCrop} ph={w.ph} />
+                  <CroppedBlobImg thumb fileRef={w.posterId} crop={w.posterCrop} ph={w.ph} />
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <b>{w.title}</b>

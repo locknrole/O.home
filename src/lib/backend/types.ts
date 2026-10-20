@@ -75,10 +75,13 @@ export interface Backend {
   fetchAllSettings(): Promise<Record<string, unknown>>;
 
   /* ---- 이미지·파일 ---- */
-  uploadFile(blob: Blob, ext: string): Promise<string>;   // → 공개 URL
+  /** → 공개 URL. name(폴더 안 경로, 예: `<해시>.png`·`thumb/<해시>`)을 주면 그 이름으로 올리고,
+   *  **같은 이름이 이미 있으면 다시 올리지 않고 그 주소를 돌려준다** — 내용 해시 이름이라 이름이 같으면 내용도 같다.
+   *  name이 없으면 매번 새 무작위 이름 (DB 이전·백업 복원) */
+  uploadFile(blob: Blob, ext: string, name?: string): Promise<string>;
   /** 저장소에 있는 파일 전부 — 어디서도 참조하지 않는 파일을 찾아 지우는 데 쓴다.
    *  글을 지워도 이미지는 저장소에 남기 때문에(참조가 다른 곳에 남아 있을 수 있어 자동 삭제는 위험)
-   *  관리자가 환경설정에서 직접 확인하고 정리한다. */
+   *  관리자가 환경설정에서 직접 확인하고 정리한다. 하위 폴더(thumb/)의 파일까지 모두 돌려준다. */
   listFiles(): Promise<{ ref: string; size: number }[]>;
   deleteFile(ref: string): Promise<void>;
 

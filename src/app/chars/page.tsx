@@ -72,7 +72,7 @@ function CharsInner() {
               style={{ ...(priv ? { opacity: .45 } : undefined), ...sp.style }}
               onClick={() => { if (!editOn) router.push(charPath(c)); }}>
               <div className="thumb" style={{ position: 'relative' }}>
-                <CroppedBlobImg fileRef={c.arts?.[0] ?? c.thumbId} crop={c.thumbCrop} ph={c.thumbClass}
+                <CroppedBlobImg thumb fileRef={c.arts?.[0] ?? c.thumbId} crop={c.thumbCrop} ph={c.thumbClass}
                   label={priv ? '비공개' : '3:4'} />
               </div>
               <div className="nm">

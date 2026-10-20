@@ -4,12 +4,12 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { useBlobUrl } from '@/lib/blobStore';
+import { useThumbSrc } from '@/lib/blobStore';
 
 export function MemberBox() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const avatarSrc = useBlobUrl(user?.avatarUrl);
+  const [avatarSrc, avatarErr] = useThumbSrc(user?.avatarUrl);   // 작은 원이라 썸네일로 (v2.1)
 
   return (
     <div className="panel login-box" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -23,7 +23,7 @@ export function MemberBox() {
               background: avatarSrc ? undefined : (user.avatarColor ?? 'linear-gradient(135deg,#6b7280,#3c434d)'),
             }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {avatarSrc && <img src={avatarSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+              {avatarSrc && <img src={avatarSrc} alt="" onError={avatarErr} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
             </div>
             <div style={{ flex: 1 }}>
               <b style={{ fontSize: 13.5 }}>{user.nickname}</b>

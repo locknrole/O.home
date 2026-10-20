@@ -54,7 +54,7 @@ export default function RelsPage() {
                 router.push(relPath(r));
               }}>
               <div className="thumb" style={{ position: 'relative' }}>
-                <CroppedBlobImg fileRef={r.thumbId} crop={r.thumbCrop} ph={r.thumbClass}
+                <CroppedBlobImg thumb fileRef={r.thumbId} crop={r.thumbCrop} ph={r.thumbClass}
                   label={priv ? '나만보기' : memberLocked ? '멤버공개' : '4:3'} />
               </div>
               <div className="nm">

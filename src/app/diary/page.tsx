@@ -38,7 +38,7 @@ function DiaryBody({ p, onOpen }: { p: DiaryPost; onOpen: (ids: string[], idx: n
         <div className="dy-thumbs">
           {p.imgIds.map((id, i) => (
             <div key={id} className="dy-thumb" onClick={() => onOpen(p.imgIds, i)}>
-              <BlobImg fileRef={id} ph="" />
+              <BlobImg thumb fileRef={id} ph="" />
             </div>
           ))}
         </div>

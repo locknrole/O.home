@@ -242,7 +242,7 @@ function TrpgPageInner() {
       onClick={() => { if (!editOn) router.push(`/trpg/${l.id}`); }}>
       <div className="stub-line" />
       <div className={`wide ${!l.thumbId && !l.thumbColor ? `ph ${l.ph}` : ''}`} style={thumbStyle(l)}>
-        {l.thumbId && <CroppedBlobImg fileRef={l.thumbId} crop={l.thumbCrop} />}
+        {l.thumbId && <CroppedBlobImg thumb fileRef={l.thumbId} crop={l.thumbCrop} />}
         <span className="no">{l.noText ? `ADMIT ONE · ${l.noText}` : `ADMIT ONE · LOG ${String(l.no).padStart(3, '0')}`}</span>
         {!l.thumbId && !l.thumbColor && <span>WIDE THUMBNAIL</span>}
       </div>
@@ -299,7 +299,7 @@ function TrpgPageInner() {
                     onClick={() => { if (!editOn) router.push(`/trpg/${l.id}`); }}>
                     {editOn && <span className="drag-h">⠿</span>}
                     <div className={`th ${!l.thumbId && !l.thumbColor ? `ph ${l.ph}` : ''}`} style={{ ...thumbStyle(l), position: 'relative' }}>
-                      {l.thumbId && <CroppedBlobImg fileRef={l.thumbId} crop={l.thumbCrop} />}
+                      {l.thumbId && <CroppedBlobImg thumb fileRef={l.thumbId} crop={l.thumbCrop} />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <b>{l.title}</b>

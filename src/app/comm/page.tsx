@@ -73,7 +73,7 @@ function CommListPageInner() {
             <div key={c.id} className="panel cm-card" {...sort(i)}
               onClick={() => { if (!editOn) router.push(`/comm/${c.id}`); }}>
               <div className="th" style={{ aspectRatio: settings.ratio.replace(':', '/') }}>
-                <CroppedBlobImg fileRef={c.images[0]} crop={c.thumbCrop} ph={c.ph} />
+                <CroppedBlobImg thumb fileRef={c.images[0]} crop={c.thumbCrop} ph={c.ph} />
                 {badge && <span className="cm-badge" style={badgeStyle(badge, settings.badgeShape)}>{badge.label}</span>}
               </div>
               <div className="bd">

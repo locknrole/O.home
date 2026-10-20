@@ -11,7 +11,7 @@ import { useCustomLinks, linkEntries } from '@/lib/linkStore';
 import { useSiteSettings } from '@/lib/siteStore';
 import { useAuth } from '@/lib/auth';
 import { useMainStore } from '@/lib/mainStore';
-import { useBlobUrl } from '@/lib/blobStore';
+import { useThumbSrc } from '@/lib/blobStore';
 import { refreshPage } from '@/lib/pageRefresh';
 import { useToast } from '@/components/ui/Toast';
 import { KToggle } from '@/components/ui/Kit';
@@ -72,7 +72,7 @@ export function TopBar() {
     ? buildMenu(menuSet, [...boardEntries(boards), ...sectionMenuEntries(secMap), ...linkEntries(links)], { loggedIn: !!user, isAdmin, id: user?.id })
     : [];
   const [site, , siteLoaded] = useSiteSettings();    // 로고 텍스트/서브/정렬 (5.2)
-  const avatarSrc = useBlobUrl(user?.avatarUrl);     // 프로필 이미지 (마이페이지, v1.9)
+  const [avatarSrc, avatarErr] = useThumbSrc(user?.avatarUrl);     // 프로필 이미지 (마이페이지, v1.9) — 작은 원이라 썸네일로 (v2.1)
   const userRef = useRef<HTMLDivElement>(null);
   const { scheme, toggleScheme } = useTheme();       // 방문자 라이트/다크 (UFO 스킨)
 
@@ -294,7 +294,7 @@ export function TopBar() {
             {/* 기본 아바타는 이니셜 없이 단색/그라데이션 (v1.9) */}
             <div className="avatar" style={!avatarSrc && user.avatarColor ? { background: user.avatarColor } : undefined}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {avatarSrc && <img src={avatarSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+              {avatarSrc && <img src={avatarSrc} alt="" onError={avatarErr} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
             </div>
             {user.nickname} <span style={{ fontSize: 9, color: '#8d939d' }}>▾</span>
           </div>

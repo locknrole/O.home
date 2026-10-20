@@ -78,7 +78,7 @@ function RoadBlock({ item, comments, onComment, onEditComment, onDeleteComment, 
       <div className={`art ${folded ? 'veil' : ''}`} style={{ background: 'var(--panel-solid)' }}>
         {imgSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imgSrc} alt={item.title}
+          <img src={imgSrc} alt={item.title} loading="lazy" decoding="async"
             className={`artimg ${item.narrow ? 'narrow' : ''}`} style={{ filter: folded ? 'blur(18px)' : undefined }} />
         ) : (
           <div className={`artimg ${item.narrow ? 'narrow' : ''} ph ${item.ph}`}
