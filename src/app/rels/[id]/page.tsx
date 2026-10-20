@@ -94,6 +94,8 @@ function RelArtCropModal({ fileRef, ratio, crop, onClose, onApply }: {
   );
 }
 
+/** 자관 갤러리 칸에 처음 보이는 그림 수 — 넓은 화면 두 줄 (더보기는 그 두 배씩) */
+const REL_GAL_STEP = 10;
 const noteOf = (m: RelMember) => (m.linkedNote === '상대 캐릭터' ? '' : m.linkedNote ?? '');
 
 function MiniProf({ member, char, isAdmin, onGo, onRemove, auUnregistered, side, onMoveSide, onFaceCrop }: {
@@ -522,6 +524,10 @@ export default function RelDetailPage() {
     && (p.auId ?? 'base') === curAuId
     && (isAdmin || p.visibility === 'public' || (p.visibility === 'member' && !!user))),
     [galPosts, rel, curAuId, isAdmin, user]);
+  /* 처음엔 두 줄만 (v2.1) — 그림이 많은 자관은 열자마자 수십 장의 원본을 받았다.
+     칸이 화면 아래에 있어도 브라우저의 lazy 로딩은 1~2천 px 앞까지 미리 받기 때문에 개수 자체를 줄인다 */
+  const [galShow, setGalShow] = useState(REL_GAL_STEP);
+  useEffect(() => { setGalShow(REL_GAL_STEP); }, [rel?.id, curAuId]);
   // 게시판 — 게시판마다 한 칸, 최신순. 못 여는 비밀글은 아예 뺀다 (게시판 목록의 canRead와 같은 규칙)
   const relBoards = useMemo(() => boards.map(b => ({
     board: b,
@@ -1359,8 +1365,9 @@ export default function RelDetailPage() {
       <div className="panel widget" style={{ margin: '16px 0 0' }}>
         <h4>{menuLabelOf(menuSet, '/gallery') ?? '갤러리'} <span className="more" onClick={() => router.push('/gallery')}>더보기 ›</span></h4>
         {relGal.length > 0 ? (
+          <>
           <div className="rel-gal">
-            {relGal.map(p => (
+            {relGal.slice(0, galShow).map(p => (
               <div key={p.id} className="t" data-tip={p.title} onClick={() => router.push(`/gallery/${p.id}`)}>
                 {/* 접힌 글(스포일러·수위)은 흐리게만 — 들어가서 펼친다 */}
                 <div style={{ position: 'absolute', inset: 0, ...(p.fold ? { filter: 'blur(10px)' } : null) }}>
@@ -1370,6 +1377,11 @@ export default function RelDetailPage() {
               </div>
             ))}
           </div>
+          {relGal.length > galShow && (
+            <button className="btn btn-ghost" style={{ display: 'block', margin: '12px auto 0', padding: '8px 18px' }}
+              onClick={() => setGalShow(n => n + REL_GAL_STEP * 2)}>더보기 ({galShow}/{relGal.length})</button>
+          )}
+          </>
         ) : <p className="hint" style={{ margin: 0 }}>연동된 그림이 없습니다 — 갤러리 글쓰기에서 자관을 선택하면 여기에 표시</p>}
       </div>
 
