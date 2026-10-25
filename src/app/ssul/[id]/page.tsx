@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
 import { Relation, REL_SEED, Character, CHAR_SEED, Visibility, relPath } from '@/lib/charStore';
 import {
-  Ssul, SSUL_KEY, SSUL_SEED, SsulBody, SsulMsg, fmtRange, auChoices, auKeyOf, splitAuKey, fetchBody, saveBodies, storedVis,
+  Ssul, SSUL_KEY, SSUL_SEED, SsulBody, SsulMsg, fmtRange, auChoices, auKeyOf, splitAuKey, fetchBody, saveBodies, storedVis, useSsulFavs,
 } from '@/lib/ssulStore';
 import { KInput, KSelect } from '@/components/ui/Kit';
 import { PageTitle } from '@/components/ui/PageText';
@@ -28,7 +28,8 @@ export default function SsulDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const fav = useSsulFavs(user?.id);
   const del = useConfirmDelete();
   const [ssuls, setSsuls, loaded] = useLocalList<Ssul>(SSUL_KEY, SSUL_SEED);
   const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
@@ -188,7 +189,13 @@ export default function SsulDetailPage() {
           </div>
         ) : (
           <>
-            <h2 className="ssul-title">{view.title}</h2>
+            <h2 className="ssul-title">
+              {fav.enabled && (
+                <button className={`ssul-star ${fav.ids.has(s.id) ? 'on' : ''}`} title={fav.ids.has(s.id) ? '즐겨찾기 해제' : '즐겨찾기'}
+                  onClick={() => fav.toggle(s.id)}>{fav.ids.has(s.id) ? '★' : '☆'}</button>
+              )}
+              {view.title}
+            </h2>
             {view.summary && <p className="si-sum">{view.summary}</p>}
             <div className="si-tags">
               {au && rel && <span className="pill dark" onClick={() => router.push(`${relPath(rel)}${s.auId ? `?au=${s.auId}` : ''}`)}>{au.label}</span>}
