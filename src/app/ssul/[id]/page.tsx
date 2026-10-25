@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
 import { Relation, REL_SEED, Character, CHAR_SEED, Visibility, relPath } from '@/lib/charStore';
 import {
-  Ssul, SSUL_KEY, SSUL_SEED, SsulBody, SsulMsg, fmtRange, auChoices, auKeyOf, splitAuKey, fetchBody, saveBodies,
+  Ssul, SSUL_KEY, SSUL_SEED, SsulBody, SsulMsg, fmtRange, auChoices, auKeyOf, splitAuKey, fetchBody, saveBodies, storedVis,
 } from '@/lib/ssulStore';
 import { KInput, KSelect } from '@/components/ui/Kit';
 import { PageTitle } from '@/components/ui/PageText';
@@ -21,7 +21,7 @@ const VIS_OPTIONS = [
   { value: 'private', label: '나만보기' },
 ];
 
-interface EditState { title: string; summary: string; au: string; tags: string[]; visibility: Visibility; msgs: SsulMsg[] }
+interface EditState { title: string; summary: string; au: string; tags: string[]; visibility: Visibility; password: string; msgs: SsulMsg[] }
 
 export default function SsulDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +39,12 @@ export default function SsulDetailPage() {
   const [ed, setEd] = useState<EditState | null>(null);
   const [tagIn, setTagIn] = useState('');
   const [saving, setSaving] = useState(false);
+  // 비밀번호 썰 — 맞히면 이 탭을 닫을 때까지 열람 유지 (TRPG 로그와 같은 방식)
+  const [unlocked, setUnlocked] = useState(false);
+  const [pwTry, setPwTry] = useState('');
+  useEffect(() => {
+    try { setUnlocked(sessionStorage.getItem(`ssul-unlock:${id}`) === '1'); } catch { /* 무시 */ }
+  }, [id]);
 
   useEffect(() => {
     let alive = true;
@@ -63,12 +69,33 @@ export default function SsulDetailPage() {
     );
   }
 
+  if (s.password && !isAdmin && !unlocked) {
+    const tryUnlock = () => {
+      if (pwTry === s.password) {
+        setUnlocked(true);
+        try { sessionStorage.setItem(`ssul-unlock:${id}`, '1'); } catch { /* 무시 */ }
+      } else toast('비밀번호가 올바르지 않습니다');
+    };
+    return (
+      <section className="page">
+        <div className="page-head"><PageTitle>SSUL</PageTitle><p>{fmtRange(s)} · 🔒 비밀번호를 입력하면 열람할 수 있습니다</p></div>
+        <div className="panel" style={{ maxWidth: 420, margin: '0 auto', padding: 26, display: 'grid', gap: 10 }}>
+          <h2 className="ssul-title" style={{ fontSize: 18 }}>{s.title}</h2>
+          <KInput type="password" placeholder="비밀번호" value={pwTry} onChange={e => setPwTry(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') tryUnlock(); }} autoFocus />
+          <button className="btn btn-dark" style={{ justifyContent: 'center', padding: 9 }} onClick={tryUnlock}>확인</button>
+          <button className="btn btn-ghost" style={{ justifyContent: 'center', padding: 9 }} onClick={() => router.push('/ssul')}>목록으로</button>
+        </div>
+      </section>
+    );
+  }
+
   const au = aus.find(a => a.key === auKeyOf(s));
   const rel = s.relId ? rels.find(r => r.id === s.relId) : undefined;
 
   const startEdit = () => {
     if (!body) return;
-    setEd({ title: s.title, summary: s.summary ?? '', au: auKeyOf(s), tags: [...s.tags], visibility: s.visibility, msgs: body.msgs.map(m => ({ ...m })) });
+    setEd({ title: s.title, summary: s.summary ?? '', au: auKeyOf(s), tags: [...s.tags], visibility: s.visibility, password: s.password ?? '', msgs: body.msgs.map(m => ({ ...m })) });
   };
 
   async function save() {
@@ -76,12 +103,14 @@ export default function SsulDetailPage() {
     if (!ed.msgs.length) { toast('메시지가 하나도 없으면 저장할 수 없습니다 — 썰 자체를 삭제해 주세요'); return; }
     setSaving(true);
     try {
-      const nextBody: SsulBody = { id: s.id, msgs: ed.msgs, visibility: ed.visibility };
+      const password = ed.password.trim() || undefined;
+      const vis = storedVis(ed.visibility, password);
+      const nextBody: SsulBody = { id: s.id, msgs: ed.msgs, visibility: vis };
       await saveBodies([body], [nextBody]);
       const { relId, auId } = splitAuKey(ed.au);
       const upd: Ssul = {
         ...s, title: ed.title.trim() || s.title, summary: ed.summary.trim() || undefined, relId, auId,
-        tags: ed.tags, visibility: ed.visibility,
+        tags: ed.tags, visibility: vis, password,
         start: ed.msgs[0].at, end: ed.msgs[ed.msgs.length - 1].at, count: ed.msgs.length,
       };
       setSsuls(ssuls.map(x => (x.id === s.id ? upd : x)));
@@ -137,7 +166,11 @@ export default function SsulDetailPage() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <KSelect minWidth={190} value={ed.au} onChange={v => setEd({ ...ed, au: v })}
                 options={[{ value: '', label: 'AU 없음' }, ...aus.map(a => ({ value: a.key, label: a.label }))]} />
-              <KSelect minWidth={120} value={ed.visibility} onChange={v => setEd({ ...ed, visibility: v as Visibility })} options={VIS_OPTIONS} />
+              {ed.password.trim()
+                ? <span className="pill" style={{ alignSelf: 'center' }}>🔒 비밀번호로 열람</span>
+                : <KSelect minWidth={120} value={ed.visibility} onChange={v => setEd({ ...ed, visibility: v as Visibility })} options={VIS_OPTIONS} />}
+              <KInput value={ed.password} onChange={e => setEd({ ...ed, password: e.target.value })} autoComplete="off"
+                placeholder="열람 비밀번호 (비우면 없음)" style={{ maxWidth: 200 }} />
             </div>
             <div className="si-tags">
               {ed.tags.map(t => (
@@ -154,6 +187,7 @@ export default function SsulDetailPage() {
             <div className="si-tags">
               {au && rel && <span className="pill dark" onClick={() => router.push(`${relPath(rel)}${s.auId ? `?au=${s.auId}` : ''}`)}>{au.label}</span>}
               {s.visibility !== 'public' && <span className="pill">{s.visibility === 'member' ? '멤버공개' : '나만보기'}</span>}
+              {s.password && <span className="pill">🔒 비밀번호</span>}
               {view.tags.map(t => <span key={t} className="pill">#{t}</span>)}
             </div>
           </>
