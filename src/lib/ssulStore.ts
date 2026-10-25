@@ -6,7 +6,7 @@
 //   ssul_imports  업로드 기록 — 상대별 마지막 대화 시각. 다음 업로드는 그 이후만 분석한다
 //
 // 날짜는 전부 **채팅 시각**('YYYY-MM-DDTHH:mm', 기기 시간 그대로)이다. 업로드한 날이 아니다.
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { backend, isServerMode } from './backend';
 import { getSetting, setSetting, onSettingChange } from './settingStore';
 import { syncList } from './db';
@@ -41,6 +41,8 @@ export interface Ssul {
   /** 업로드한 사람 쪽 이름 (말풍선 좌우 구분) */
   me?: string;
   start: string;
+  /** 채팅 시작 월 'YYYY-MM' — 목록 페이지가 이 값으로 그 달 것만 서버에서 읽는다 (start에서 계산, 저장할 때 채움) */
+  ym?: string;
   end: string;
   count: number;
   relId?: string;
@@ -80,6 +82,9 @@ export const lastImportedAt = (imps: SsulImport[], partner: string): string | nu
 
 /** 'YYYY-MM-DDTHH:mm' → 'YYYY.MM.DD' */
 export const fmtDay = (at: string) => at.slice(0, 10).replace(/-/g, '.');
+
+/** 저장 직전에 — 월(ym)을 시작 시각에 맞춘다 */
+export const withYm = (s: Ssul): Ssul => (s.ym === s.start.slice(0, 7) ? s : { ...s, ym: s.start.slice(0, 7) });
 
 /** 썰 기간 표시 — 하루면 날짜 하나, 여러 날이면 시작~끝 */
 export function fmtRange(s: Pick<Ssul, 'start' | 'end'>): string {
@@ -264,4 +269,79 @@ export async function runPool<T>(jobs: T[], n: number, run: (job: T) => Promise<
   };
   await Promise.all(Array.from({ length: Math.min(n, jobs.length) }, worker));
   return failed;
+}
+
+/* ---------- 월별 읽기 — 목록 페이지가 매번 전체를 읽지 않게 ----------
+   서버(Firestore)는 문서를 읽을 때마다 과금되므로, 목록은 기본으로 가장 최근 한 달만 읽는다.
+   · 썰마다 ym('YYYY-MM')을 두고 data.ym == 값으로 그 달만 질의한다
+   · 어떤 달이 있는지(기간 칸)는 사이트 설정의 월 목록(SSUL_MONTHS_KEY)으로 — 이걸 알려고 전체를 읽지 않게.
+     월 목록은 썰 전체를 이미 들고 있는 관리자 화면(업로드·상세)이 바뀔 때마다 맞춰 둔다(useSyncSsulIndex) */
+export const SSUL_MONTHS_KEY = 'ohome.ssulmonths.v1';
+
+/** 썰이 있는 달 목록 (오름차순) — 아직 한 번도 맞춰 둔 적 없으면 빈 배열 */
+export function useSsulMonths(): string[] {
+  const read = () => getSetting<string[]>(SSUL_MONTHS_KEY, []);
+  const [m, setM] = useState<string[]>([]);
+  useEffect(() => {
+    setM(read());
+    return onSettingChange(k => { if (k === SSUL_MONTHS_KEY) setM(read()); });
+  }, []);
+  return m;
+}
+
+/** 관리자 화면에서 — 썰 전체를 들고 있을 때 월(ym)이 빠진 썰을 채우고, 월 목록을 맞춘다.
+ *  없앤 비밀번호 기능의 흔적(password 칸)도 여기서 지운다 — 공개 문서에 평문으로 남지 않게 */
+export function useSyncSsulIndex(ssuls: Ssul[], setSsuls: (next: Ssul[]) => void, ready: boolean) {
+  useEffect(() => {
+    if (!ready) return;
+    const fixed = ssuls.map(s => {
+      const t = withYm(s);
+      return t.password ? { ...t, password: undefined } : t;
+    });
+    if (fixed.some((s, i) => s !== ssuls[i])) { setSsuls(fixed); return; }   // 저장되면 다시 불려 아래로 간다
+    const months = [...new Set(ssuls.map(s => s.ym!))].sort();
+    if (JSON.stringify(months) !== JSON.stringify(getSetting<string[]>(SSUL_MONTHS_KEY, []))) setSetting(SSUL_MONTHS_KEY, months);
+  }, [ssuls, setSsuls, ready]);
+}
+
+/** 목록 페이지가 읽을 범위 */
+export type SsulScope = { kind: 'all' } | { kind: 'months'; yms: string[] } | { kind: 'ids'; ids: string[] };
+
+const localList = (): Ssul[] => {
+  try { return JSON.parse(localStorage.getItem(SSUL_KEY) ?? '[]') as Ssul[]; } catch { return []; }
+};
+
+/** 범위만큼만 읽기 — 달별은 그 달 질의, 즐겨찾기는 그 문서들만, 그 밖엔 전체.
+ *  서버가 달별 질의를 거부하면(색인 등) 전체를 읽어 거른다 — 화면이 비지 않게 */
+export function useSsulScope(scope: SsulScope | null): { items: Ssul[]; loaded: boolean } {
+  const key = scope ? JSON.stringify(scope) : '';
+  const [state, setState] = useState<{ key: string; items: Ssul[] }>({ key: '', items: [] });
+  const load = useCallback(async (sc: SsulScope): Promise<Ssul[]> => {
+    const pick = (all: Ssul[]) => sc.kind === 'all' ? all
+      : sc.kind === 'months' ? all.filter(s => sc.yms.includes(s.start.slice(0, 7)))
+        : all.filter(s => sc.ids.includes(s.id));
+    if (!isServerMode()) return pick(localList());
+    const be = backend()!;
+    try {
+      const all = async () => (await be.fetchList('ssul')) as unknown as Ssul[];
+      if (sc.kind === 'all') return await all();
+      if (sc.kind === 'ids') {
+        const got = await Promise.all(sc.ids.map(id => be.fetchOne('ssul', id)));
+        return got.filter(x => !!x) as unknown as Ssul[];
+      }
+      const parts = await Promise.all(sc.yms.map(ym => be.fetchListWhere('ssul', 'ym', ym)));
+      return parts.flat() as unknown as Ssul[];
+    } catch (err) {
+      console.warn('[ohome] 썰 부분 읽기 실패 — 전체 읽기로 대신합니다', err);
+      return pick((await be.fetchList('ssul')) as unknown as Ssul[]);
+    }
+  }, []);
+  useEffect(() => {
+    if (!scope) return;
+    let alive = true;
+    void load(scope).then(items => { if (alive) setState({ key, items }); }).catch(() => { if (alive) setState({ key, items: [] }); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, load]);
+  return { items: state.key === key ? state.items : [], loaded: !!scope && state.key === key };
 }

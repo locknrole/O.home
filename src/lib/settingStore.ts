@@ -45,6 +45,7 @@ export const SETTING_KEYS = [
   'ohome.membertags.v1', 'ohome.invite.v1', 'ohome.roadnext.v1', 'ohome.repo.v1',
   'ohome.sections.v1', 'ohome.intro.v1', 'ohome.links.v1',
   'ohome.ssuldict.v1',   // 썰 이름·키워드 사전
+  'ohome.ssulmonths.v1', // 썰이 있는 달 목록 (목록 페이지가 전체를 읽지 않게)
 ];
 
 /** 앱 시작 시 1회 — 서버에 저장된 설정을 전부 받아 캐시 */

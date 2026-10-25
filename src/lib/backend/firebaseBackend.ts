@@ -306,6 +306,20 @@ export async function createFirebaseBackend(cfg: FirebaseCfg): Promise<Backend> 
       return [...seen.values()].sort((a, b) => a.sort - b.sort).map(v => v.item);
     },
 
+    async fetchListWhere<T extends ListItem>(coll: string, field: string, value: string): Promise<T[]> {
+      const sets = await readSets();
+      // 같음(==·in) 조건만 쓰므로 복합 색인 없이 단일 필드 색인 병합으로 처리된다
+      const snaps = await Promise.all(sets.map(cs =>
+        getDocsFromServer(query(collection(db, coll), ...cs, where(`data.${field}`, '==', value)))));
+      const seen = new Map<string, { sort: number; item: T }>();
+      snaps.forEach(s => s.docs.forEach(d => {
+        if (seen.has(d.id)) return;
+        const raw = d.data() as { data?: Record<string, unknown>; sort?: number };
+        seen.set(d.id, { sort: raw.sort ?? 0, item: { ...(raw.data ?? {}), id: d.id } as T });
+      }));
+      return [...seen.values()].sort((a, b) => a.sort - b.sort).map(v => v.item);
+    },
+
     async fetchOne<T extends ListItem>(coll: string, id: string): Promise<T | null> {
       try {
         const d = await fsMod.getDocFromServer(doc(db, coll, id));
