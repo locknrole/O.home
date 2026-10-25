@@ -13,6 +13,7 @@ export const FEATURES: { href: string; label: string }[] = [
   { href: '/chars', label: '캐릭터' },
   { href: '/rels', label: '자관' },
   { href: '/rp', label: '역극' },
+  { href: '/ssul', label: '썰' },
   { href: '/board', label: '리스트' },
   { href: '/gallery', label: '갤러리' },
   { href: '/loadb', label: '로드비' },
@@ -37,6 +38,7 @@ export const DEFAULT_MENU: MenuItem[] = [
       { label: '캐릭터', href: '/chars' },
       { label: '자관', href: '/rels' },
       { label: '역극', href: '/rp' },
+      { label: '썰', href: '/ssul' },
     ],
   },
   {

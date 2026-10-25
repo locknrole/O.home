@@ -63,6 +63,8 @@ export interface Backend {
 
   /* ---- 목록(콘텐츠) ---- */
   fetchList<T extends ListItem>(coll: string): Promise<T[]>;
+  /** 문서 하나만 — 목록 전체를 받기엔 너무 큰 본문(썰 대화 등)을 열 때. 없거나 권한이 없으면 null */
+  fetchOne<T extends ListItem>(coll: string, id: string): Promise<T | null>;
   syncList<T extends ListItem>(coll: string, prev: T[], next: T[], uid: string | null): Promise<void>;
   /** 이미 저장된 행의 공개범위만 다시 계산해 덮어쓴다 (v2.0) — 메뉴를 비공개로 바꾼 뒤
    *  「글에도 적용」을 누르면 돈다. 내용(data)·순서(sort)는 건드리지 않는다. */
@@ -128,6 +130,12 @@ export const COLLECTION_OF: Record<string, string> = {
   // 알림 — 기기 보관이던 것을 서버로 (v2.0 포크 제보 「알림이 안 와요」).
   // 행 주인(authorId)을 받는 사람으로 적어, 받는 사람 계정이 어느 기기에서나 받아 간다
   'ohome.notif.v1': 'notifications',
+  // 썰 백업 (카톡 아카이브) — 목록 문서와 대화 본문을 나눈다(TRPG 로그와 같은 이유 + 2년치 대화를
+  // 목록 화면이 통째로 받지 않게). 본문은 fetchOne으로 한 개씩만 연다
+  'ohome.ssul.v1': 'ssul',
+  'ohome.ssulbody.v1': 'ssul_bodies',
+  // 업로드 기록 — 상대별로 어디까지 올렸는지 (다음 업로드에서 겹치는 기간을 건너뛴다). 관리자만
+  'ohome.ssulimp.v1': 'ssul_imports',
 };
 
 export const CONTENT_COLLECTIONS = Object.values(COLLECTION_OF);

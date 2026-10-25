@@ -155,6 +155,13 @@ export async function createSupabaseBackend(
       });
     },
 
+    async fetchOne<T extends ListItem>(coll: string, id: string): Promise<T | null> {
+      const { data, error } = await sb.from(coll).select('id, data').eq('id', id).maybeSingle();
+      if (error || !data) return null;
+      const row = data as { id: string; data: Record<string, unknown> };
+      return { ...(row.data ?? {}), id: row.id } as T;
+    },
+
     async syncList<T extends ListItem>(coll: string, prev: T[], next: T[], uid: string | null) {
       const { inserts, updates, moves, deletes } = diffList(prev, next);
       const toRow = ({ item, sort }: { item: T; sort: number }) => {

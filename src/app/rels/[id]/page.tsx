@@ -23,6 +23,7 @@ import { Post, BOARD_SEED } from '@/lib/postStore';
 import { useBoards, boardHref, MAIN_BOARD_ID } from '@/lib/boardStore';
 import { useMenuSettings, menuLabelOf } from '@/lib/menuStore';
 import { RpRoom, RP_SEED } from '@/lib/rpStore';
+import { Ssul, SSUL_KEY, SSUL_SEED, fmtRange } from '@/lib/ssulStore';
 import { useFonts } from '@/lib/fontStore';
 import { Tip, KInput, KTextarea, KSelect, KRadio, KCheck } from '@/components/ui/Kit';
 import { Modal, ConfirmModal, useConfirmDelete } from '@/components/ui/Modal';
@@ -253,6 +254,8 @@ export default function RelDetailPage() {
   // 갤러리 · 게시판 연동 (v2.0 사용자 요청 — 자관 상세에서 연관 글을 모아 본다)
   const [galPosts] = useLocalList<BackupPost>('ohome.backup.v1', BACKUP_SEED);
   const [boardPosts] = useLocalList<Post>('ohome.board.v1', BOARD_SEED);
+  // 썰 연동 — 썰 업로드·편집에서 이 자관의 AU를 고른 것만 (목록 문서만 받는다, 본문은 상세에서)
+  const [ssuls] = useLocalList<Ssul>(SSUL_KEY, SSUL_SEED);
   const { boards } = useBoards();
   const [menuSet] = useMenuSettings();
   const [tab, setTab] = useState<'tl' | 'qa'>('tl');
@@ -515,6 +518,9 @@ export default function RelDetailPage() {
   const curAuId = au?.id ?? 'base';
   const relLogs = useMemo(() => logs.filter(l => l.relId === rel?.id && (l.auId ?? 'base') === curAuId),
     [logs, rel, curAuId]);
+  // 썰 — 채팅 날짜 순. 서버가 이미 공개범위로 걸러서 준다
+  const relSsuls = useMemo(() => ssuls.filter(x => x.relId === rel?.id && (x.auId ?? 'base') === curAuId)
+    .sort((a, b) => a.start.localeCompare(b.start)), [ssuls, rel, curAuId]);
   // 역극 연동 (4.9) — 내가 참여한 방 + 공개 전환된 완결 방만 (비참여 방은 존재 자체 비노출)
   const relRooms = useMemo(() => rooms.filter(rm => rm.relId === rel?.id
     && ((user && rm.memberIds.includes(user.id)) || (rm.status === 'done' && rm.isPublic))),
@@ -1361,6 +1367,19 @@ export default function RelDetailPage() {
       </div>
       )}
 
+      {/* 썰 연동 — 카톡 아카이브에서 이 AU로 분류된 썰. AU 관리에서 숨길 수 있다 */}
+      {!au?.hideSsul && (
+        <div className="panel widget" style={{ margin: '16px 0 0' }}>
+          <h4>{menuLabelOf(menuSet, '/ssul') ?? '썰'} <span className="more" onClick={() => router.push('/ssul')}>더보기 ›</span></h4>
+          {relSsuls.length > 0 ? relSsuls.map(x => (
+            <div key={x.id} className="dday-row" style={{ cursor: 'var(--cur-pointer,pointer)' }} onClick={() => router.push(`/ssul/${x.id}`)}>
+              <span>{x.title}{x.tags.length > 0 && <small style={{ color: 'var(--faint)', marginLeft: 8 }}>{x.tags.slice(0, 3).map(t => `#${t}`).join(' ')}</small>}</span>
+              <b style={{ fontSize: 11, color: 'var(--faint)' }}>{fmtRange(x)}</b>
+            </div>
+          )) : <p className="hint" style={{ margin: 0 }}>연동된 썰이 없습니다 — 썰 업로드·편집에서 이 자관의 AU를 고르면 여기에 표시</p>}
+        </div>
+      )}
+
       {/* 갤러리 연동 (v2.0 사용자 요청) — 글쓰기에서 이 자관을 고른 그림만. 칸 이름은 메뉴에 붙인 이름을 따른다 */}
       <div className="panel widget" style={{ margin: '16px 0 0' }}>
         <h4>{menuLabelOf(menuSet, '/gallery') ?? '갤러리'} <span className="more" onClick={() => router.push('/gallery')}>더보기 ›</span></h4>
@@ -1551,6 +1570,8 @@ export default function RelDetailPage() {
                   onChange={v => updateRel({ aus: rel.aus.map(x => (x.id === a.id ? { ...x, hideRp: v || undefined } : x)) })} />
                 <KCheck label={<span style={{ fontSize: 11.5 }}>로그 리스트 숨김</span>} checked={!!a.hideLog}
                   onChange={v => updateRel({ aus: rel.aus.map(x => (x.id === a.id ? { ...x, hideLog: v || undefined } : x)) })} />
+                <KCheck label={<span style={{ fontSize: 11.5 }}>썰 리스트 숨김</span>} checked={!!a.hideSsul}
+                  onChange={v => updateRel({ aus: rel.aus.map(x => (x.id === a.id ? { ...x, hideSsul: v || undefined } : x)) })} />
               </div>
             </div>
           ))}

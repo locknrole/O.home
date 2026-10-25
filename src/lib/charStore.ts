@@ -355,6 +355,8 @@ export interface RelAu {
    *  원본(base)의 설정은 aus의 base 항목에 담긴다 */
   hideRp?: boolean;
   hideLog?: boolean;
+  /** 상세 하단의 썰(카톡 아카이브) 연동 리스트 숨김 — AU마다 따로 */
+  hideSsul?: boolean;
 }
 
 export interface Relation {
