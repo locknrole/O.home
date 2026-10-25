@@ -1845,10 +1845,10 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
 .ssul-tl-list::before{content:'';position:absolute;left:22px;top:20px;bottom:20px;width:1.5px;background:var(--line)}
 .ssul-item{position:relative;display:grid;grid-template-columns:118px 1fr;gap:14px;padding:14px 0;border-bottom:1px dashed var(--line)}
 .ssul-item:last-child{border:none}
-.ssul-item .dot{position:absolute;left:-22px;top:20px;width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--panel)}
+.ssul-item .dot{position:absolute;left:-22px;top:20px;width:9px;height:9px;border-radius:50%;background:var(--btn-dark,var(--ink));box-shadow:0 0 0 3px var(--panel)}
 .si-date{font-size:calc(11.5px*var(--fs,1));color:var(--faint);padding-top:3px;letter-spacing:.02em}
 .si-title{font-size:calc(15px*var(--fs,1));font-weight:600;color:var(--ink);cursor:var(--cur-pointer,pointer)}
-.si-title:hover{color:var(--accent)}
+.si-title:hover{color:var(--btn-dark,var(--ink));text-decoration:underline}
 .si-sum{font-size:calc(12.5px*var(--fs,1));color:var(--sub);margin:5px 0 0;line-height:1.55}
 .si-tags{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:8px}
 .si-tags .pill{cursor:var(--cur-pointer,pointer);padding:3px 9px}
@@ -1877,7 +1877,7 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
 .ssul-chat{display:flex;flex-direction:column;gap:3px;font-size:calc(13.5px*var(--fs,1))}
 .sc-day{text-align:center;margin:16px 0 10px}
 .sc-day:first-child{margin-top:0}
-.sc-day span{display:inline-block;padding:4px 14px;border-radius:20px;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--sub);font-size:calc(11px*var(--fs,1))}
+.sc-day span{display:inline-block;padding:4px 14px;border-radius:20px;background:color-mix(in srgb,var(--btn-dark,var(--ink)) 13%,transparent);color:var(--sub);font-size:calc(11px*var(--fs,1))}
 .sc-gap{height:1px;margin:12px 20%;background:var(--line)}
 .sc-sys{text-align:center;color:var(--faint);font-size:calc(11px*var(--fs,1));margin:6px 0}
 .sc-row{display:flex}
@@ -1887,8 +1887,10 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
 .sc-name{font-size:calc(11.5px*var(--fs,1));color:var(--sub);margin:8px 0 3px 2px;font-weight:600}
 .sc-line{display:flex;align-items:flex-end;gap:6px}
 .sc-row.me .sc-line{flex-direction:row-reverse}
-.sc-bubble{padding:8px 12px;border-radius:14px;border-top-left-radius:4px;background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink);line-height:1.6;word-break:break-word}
-.sc-row.me .sc-bubble{border-top-left-radius:14px;border-top-right-radius:4px;background:color-mix(in srgb,var(--accent) 15%,transparent)}
+/* 말풍선은 사이트 테마색(버튼색)을 따른다 — 내 쪽은 테마색을 옅게, 상대는 무채색. 포인트색(--accent)은 경고·강조용이라 쓰지 않는다 */
+.sc-bubble{padding:8px 12px;border-radius:14px;border-top-left-radius:4px;background:color-mix(in srgb,var(--ink) 7%,transparent);border:1px solid color-mix(in srgb,var(--ink) 6%,transparent);color:var(--ink);line-height:1.6;word-break:break-word}
+.sc-row.me .sc-bubble{border-top-left-radius:14px;border-top-right-radius:4px;background:color-mix(in srgb,var(--btn-dark,var(--ink)) 20%,transparent);border-color:color-mix(in srgb,var(--btn-dark,var(--ink)) 34%,transparent)}
+.sc-bubble.plain,.sc-row.me .sc-bubble.plain{border-color:transparent}
 .sc-bubble.plain{background:none;padding:2px 0}
 .sc-text{white-space:pre-wrap}
 .sc-media{display:inline-block;padding:5px 11px;border-radius:10px;border:1px dashed var(--line);color:var(--faint);font-size:calc(11.5px*var(--fs,1))}
@@ -1966,8 +1968,8 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
 .sn-item small{font-size:calc(10px*var(--fs,1));color:var(--faint);white-space:nowrap}
 .sn-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sn-tl .sn-item .dot{position:absolute;left:-13px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:var(--line)}
-.sn-item.cur{color:var(--ink);font-weight:600;background:color-mix(in srgb,var(--accent) 12%,transparent);cursor:default}
-.sn-item.cur .dot{background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+.sn-item.cur{color:var(--ink);font-weight:600;background:color-mix(in srgb,var(--btn-dark,var(--ink)) 16%,transparent);cursor:default}
+.sn-item.cur .dot{background:var(--btn-dark,var(--ink));box-shadow:0 0 0 3px color-mix(in srgb,var(--btn-dark,var(--ink)) 28%,transparent)}
 .sn-chips{display:flex;flex-wrap:wrap;gap:4px}
 .sn-chips .pill{cursor:var(--cur-pointer,pointer);padding:3px 9px}
 .sn-related{display:grid;gap:1px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
