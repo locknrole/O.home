@@ -61,6 +61,11 @@ const RE_IOS_SYS = new RegExp(`^(\\d{4})\\. ?(\\d{1,2})\\. ?(\\d{1,2})\\.? ${AMP
 
 const RE_PC_SYS = /^.+님(?:이 들어왔습니다|이 나갔습니다|이 .+님을 초대했습니다|을 내보냈습니다)\.?$/;
 
+// 최신 모바일 내보내기는 날짜가 바뀔 때 요일 없이 「날짜 + 첫 메시지 시각」만 한 줄 찍는다 — 구분줄로 버린다
+const RE_DT_LINE = new RegExp(`^(?:\\d{4}년 \\d{1,2}월 \\d{1,2}일|\\d{4}\\. ?\\d{1,2}\\. ?\\d{1,2}\\.?) ${AMPM}\\d{1,2}:\\d{2}\\s*$`);
+// 접두 없이 한 줄로만 남는 삭제 표시 (누가 지웠는지는 내보내기에 없다)
+const RE_DELETED_LINE = /^(?:메시지가 삭제되었습니다|삭제된 메시지입니다)\.?$/;
+
 const RE_HEADER = /^(.+?)(?: 님과)? 카카오톡 대화$|^저장한 날짜\s*:/;
 
 /** 본문만 보고 종류 판정. 미디어 포함 내보내기는 파일 이름이 본문으로 찍힌다. */
@@ -72,7 +77,7 @@ export function classify(text: string): Pick<KakaoMsg, 'kind' | 'media'> {
   if (t === '동영상') return { kind: 'video' };
   if (t === '이모티콘' || t === '(이모티콘)') return { kind: 'emoticon' };
   if (t === '음성메시지') return { kind: 'voice' };
-  if (t === '삭제된 메시지입니다.' || t === '채팅방 관리자가 메시지를 가렸습니다.') return { kind: 'deleted' };
+  if (t === '삭제된 메시지입니다.' || t === '메시지가 삭제되었습니다.' || t === '채팅방 관리자가 메시지를 가렸습니다.') return { kind: 'deleted' };
   if ((m = t.match(/^파일: (.+)$/))) return { kind: 'file', media: { file: m[1] } };
   if (/^\S+\.(jpe?g|png|gif|webp|heic)$/i.test(t)) return { kind: 'photo', media: { count: 1, file: t } };
   if (/^\S+\.(mp4|mov|m4v)$/i.test(t)) return { kind: 'video', media: { file: t } };
@@ -145,6 +150,14 @@ export function parseKakao(raw: string): ParseResult {
     if (li < 4 && RE_HEADER.test(line)) {
       const t = line.match(/^(.+?)(?: 님과)? 카카오톡 대화$/);
       if (t) title = t[1];
+      continue;
+    }
+    if (RE_DT_LINE.test(line)) {
+      if (cur) { msgs.push(finalize(cur)); cur = null; }
+      continue;
+    }
+    if (cur && RE_DELETED_LINE.test(line.trim())) {
+      push({ i: 0, at: (cur as KakaoMsg).at, sender: '', text: line.trim(), kind: 'system' });
       continue;
     }
     if ((m = line.match(RE_DATE_LINE))) {

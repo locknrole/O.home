@@ -31,10 +31,10 @@ export default function SsulPage() {
     return ssuls
       .filter(s => au === 'all' || (au === 'none' ? !s.relId : auKeyOf(s) === au))
       .filter(s => tags.every(t => s.tags.includes(t)))
-      .filter(s => !needle || s.title.toLowerCase().includes(needle) || (s.summary ?? '').toLowerCase().includes(needle)
+      .filter(s => !needle || s.title.toLowerCase().includes(needle) || ((!s.password || isAdmin) && (s.summary ?? '').toLowerCase().includes(needle))
         || s.tags.some(t => t.toLowerCase().includes(needle)))
       .sort((a, b) => (order === 'asc' ? a.start.localeCompare(b.start) : b.start.localeCompare(a.start)));
-  }, [ssuls, au, tags, q, order]);
+  }, [ssuls, au, tags, q, order, isAdmin]);
 
   // 연·월로 묶기 (채팅 시작일 기준)
   const groups = useMemo(() => {
@@ -85,7 +85,9 @@ export default function SsulPage() {
                     <div className="si-main">
                       <a className="si-title" onClick={() => router.push(`/ssul/${s.id}`)}>{s.title}</a>
                       {s.visibility !== 'public' && <span className="pill" style={{ marginLeft: 6 }}>{VIS_LABEL[s.visibility]}</span>}
-                      {s.summary && <p className="si-sum">{s.summary}</p>}
+                      {s.password && <span className="pill" style={{ marginLeft: 6 }}>🔒</span>}
+                      {/* 비밀번호 썰은 요약을 숨긴다 — 제목·태그만 (관리자는 그대로) */}
+                      {s.summary && (!s.password || isAdmin) && <p className="si-sum">{s.summary}</p>}
                       <div className="si-tags">
                         {s.relId && auLabel(auKeyOf(s)) && <span className="pill dark" onClick={() => setAu(auKeyOf(s))}>{auLabel(auKeyOf(s))}</span>}
                         {s.tags.map(t => <span key={t} className={`pill ${tags.includes(t) ? 'red' : ''}`} onClick={() => toggleTag(t)}>#{t}</span>)}
