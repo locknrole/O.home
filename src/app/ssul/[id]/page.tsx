@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
 import { Relation, REL_SEED, Character, CHAR_SEED, Visibility, relPath } from '@/lib/charStore';
 import {
-  Ssul, SSUL_KEY, SSUL_SEED, SsulBody, SsulMsg, fmtRange, auChoices, auKeyOf, splitAuKey, fetchBody, saveBodies, useSsulFavs,
+  Ssul, SSUL_KEY, SSUL_SEED, SsulBody, SsulMsg, fmtRange, auChoices, auKeyOf, splitAuKey, fetchBody, saveBodies, useSsulFavs, VIS_OPTIONS,
 } from '@/lib/ssulStore';
 import { KInput, KSelect } from '@/components/ui/Kit';
 import { PageTitle } from '@/components/ui/PageText';
@@ -15,12 +15,6 @@ import { useConfirmDelete } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { ChatView } from '@/components/ssul/ChatView';
 import { SsulNavigator, type NavPick } from '@/components/ssul/SsulNavigator';
-
-const VIS_OPTIONS = [
-  { value: 'public', label: '전체공개' },
-  { value: 'member', label: '멤버공개' },
-  { value: 'private', label: '나만보기' },
-];
 
 interface EditState { title: string; summary: string; au: string; tags: string[]; visibility: Visibility; msgs: SsulMsg[] }
 

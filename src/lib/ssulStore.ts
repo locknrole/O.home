@@ -6,7 +6,7 @@
 //   ssul_imports  업로드 기록 — 상대별 마지막 대화 시각. 다음 업로드는 그 이후만 분석한다
 //
 // 날짜는 전부 **채팅 시각**('YYYY-MM-DDTHH:mm', 기기 시간 그대로)이다. 업로드한 날이 아니다.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { backend, isServerMode } from './backend';
 import { getSetting, setSetting, onSettingChange } from './settingStore';
 import { syncList } from './db';
@@ -203,7 +203,8 @@ export function useSsulFavs(userId: string | undefined): { ids: Set<string>; tog
   const [favs, setFavs] = useLocalList<SsulFav>(SSUL_FAV_KEY, SSUL_FAV_SEED);
   const docId = userId ? `fav_${userId}` : '';
   const mine = favs.find(f => f.id === docId);
-  const ids = new Set(mine?.ids ?? []);
+  // 문서가 바뀔 때만 새 Set — 화면의 useMemo가 매 렌더마다 다시 돌지 않게
+  const ids = useMemo(() => new Set(mine?.ids ?? []), [mine]);
   const toggle = (ssulId: string) => {
     if (!userId) return;
     const nextIds = ids.has(ssulId) ? [...ids].filter(x => x !== ssulId) : [...ids, ssulId];
@@ -225,4 +226,42 @@ export function ssulErrText(code: string): string {
     'too-long': '응답이 너무 길어졌습니다 — 다시 시도해 주세요',
   };
   return T[code] ?? `실패: ${code}`;
+}
+
+/* ---------- 화면 공용 ---------- */
+
+export const VIS_OPTIONS: { value: Visibility; label: string }[] = [
+  { value: 'public', label: '전체공개' },
+  { value: 'member', label: '멤버공개' },
+  { value: 'private', label: '나만보기' },
+];
+
+/** /api/ssul/<path> 호출 — 관리자 토큰을 붙이고, 실패면 오류 코드(ssulErrText로 안내 문구) */
+export async function postSsulApi<T extends { error?: string }>(path: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+  try {
+    const token = (await backend()?.authToken()) ?? '';
+    const res = await fetch(`/api/ssul/${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+    const j = await res.json() as T;
+    if (!res.ok || j.error) return { ok: false, error: j.error || `HTTP ${res.status}` };
+    return { ok: true, data: j };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** 작업을 동시에 n개씩 — run이 오류 코드를 돌려주거나 던지면, 또는 stop()이 참이 되면 남은 건 시작하지 않는다.
+ *  돌려주는 값은 실패 사유(없으면 ''). 판별·키워드 다시 붙이기가 같이 쓴다 */
+export async function runPool<T>(jobs: T[], n: number, run: (job: T) => Promise<string | void>, stop: () => boolean = () => false): Promise<string> {
+  let next = 0, failed = '';
+  const worker = async () => {
+    while (!failed && !stop() && next < jobs.length) {
+      const job = jobs[next++];
+      try { const err = await run(job); if (err) failed = err; } catch (e) { failed = e instanceof Error ? e.message : String(e); }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(n, jobs.length) }, worker));
+  return failed;
 }

@@ -9,20 +9,20 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useLocalList, newId } from '@/lib/postStore';
-import { backend } from '@/lib/backend';
 import { putBlob } from '@/lib/blobStore';
 import { Relation, REL_SEED, Character, CHAR_SEED, Visibility } from '@/lib/charStore';
 import {
   Ssul, SSUL_KEY, SSUL_SEED, SsulImport, SSUL_IMP_KEY, SSUL_IMP_SEED, SsulBody, SsulMsg,
   lastImportedAt, fmtDay, fmtRange, auChoices, splitAuKey, auKeyOf, fetchBody, saveBodies,
-  useSsulDict, normTags, renameMsgs, ssulErrText, type SsulDict,
+  useSsulDict, normTags, renameMsgs, ssulErrText, VIS_OPTIONS, postSsulApi, runPool, type SsulDict,
 } from '@/lib/ssulStore';
 import { parseKakao, type KakaoMsg, type ParseResult } from '@/lib/kakao/parse';
 import { splitSessions, type Session } from '@/lib/kakao/segment';
 import {
   sessionText, isTrivial, batchSessions, buildDrafts, msgLine, partKey, daySpan,
-  type AnalyzeRequest, type AnalyzeResponse, type AnalyzeResult, type Draft, type PrevSsul,
+  type Draft,
 } from '@/lib/kakao/analyze';
+import type { AnalyzeRequest, AnalyzeResponse, AnalyzeResult, PrevSsul } from '@/lib/kakao/api';
 import { decodeLogText } from '@/lib/galleryStore';
 import { KInput, KSelect, KCheck } from '@/components/ui/Kit';
 import { PageTitle } from '@/components/ui/PageText';
@@ -32,12 +32,7 @@ import { ChatView } from '@/components/ssul/ChatView';
 import { SsulManage } from '@/components/ssul/SsulManage';
 
 const ME_KEY = 'ohome.ssul.me';
-const VIS_OPTIONS = [
-  { value: 'public', label: '전체공개' },
-  { value: 'member', label: '멤버공개' },
-  { value: 'private', label: '나만보기' },
-];
-const CONCURRENCY = 3;
+const CONCURRENCY = 3;   // 판별 요청을 동시에 몇 개까지
 
 interface Row extends Draft {
   include: boolean;
@@ -160,46 +155,31 @@ export default function SsulUploadPage() {
     const already = candidates.length - batches.reduce((n, b) => n + b.length, 0);
     setProgress({ done: already, total: candidates.length });
     const tags = [...new Set(ssuls.flatMap(s => s.tags))].slice(0, 200);
-    const token = (await backend()?.authToken()) ?? '';
     const base = prevExisting();
-    let failed = '';
-    let next = 0;
+    const fromOf = new Map(sessions.map(x => [x.id, x.from]));
 
-    const worker = async () => {
-      while (!failed && !stopRef.current && next < batches.length) {
-        const batch = batches[next++];
-        // 앞 묶음에서 이미 나온 썰 중 이 묶음보다 앞선 것 — 묶음 경계를 넘는 이어짐 판단용
-        const firstFrom = sessions.find(s => s.id === batch[0].id)!.from;
-        const earlier = [...resultsRef.current.values()]
-          .flatMap(r => r.ssuls.map((p, k) => ({ ...p, key: partKey(r.id, k) })))
-          .filter(p => p.to < firstFrom)
-          .sort((a, b) => a.from - b.from)
-          .slice(-3)
-          .map(p => ({
-            id: p.key, title: p.title, au: p.au, end: fresh[p.to]?.at ?? '',
-            tail: fresh.slice(Math.max(p.from, p.to - 2), p.to + 1).map(m => msgLine(m, me)).join(' / '),
-          }));
-        const body: AnalyzeRequest = {
-          me, partner, sessions: batch, tags, prev: [...base, ...earlier].slice(-4),
-          aus: aus.map(a => ({ key: a.key, label: a.label, chars: a.chars })),
-        };
-        try {
-          const res = await fetch('/api/ssul/analyze', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify(body),
-          });
-          const j = await res.json() as AnalyzeResponse;
-          if (!res.ok || j.error) { failed = j.error || `HTTP ${res.status}`; return; }
-          j.results.forEach(r => resultsRef.current.set(r.id, r));
-          // 모델이 빠뜨린 세션은 잡담으로 (다시 보내지 않게)
-          batch.forEach(it => { if (!resultsRef.current.has(it.id)) resultsRef.current.set(it.id, { id: it.id, ssuls: [] }); });
-          setProgress(p => ({ ...p, done: p.done + batch.length }));
-        } catch (e) {
-          failed = e instanceof Error ? e.message : String(e);
-        }
-      }
-    };
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, batches.length) }, worker));
+    const failed = await runPool(batches, CONCURRENCY, async batch => {
+      // 앞 묶음에서 이미 나온 썰 중 이 묶음보다 앞선 것 — 묶음 경계를 넘는 이어짐 판단용
+      const firstFrom = fromOf.get(batch[0].id)!;
+      const earlier = [...resultsRef.current.values()]
+        .flatMap(r => r.ssuls.map((p, k) => ({ ...p, key: partKey(r.id, k) })))
+        .filter(p => p.to < firstFrom)
+        .sort((x, y) => x.from - y.from)
+        .slice(-3)
+        .map(p => ({
+          id: p.key, title: p.title, au: p.au, end: fresh[p.to]?.at ?? '',
+          tail: fresh.slice(Math.max(p.from, p.to - 2), p.to + 1).map(m => msgLine(m, me)).join(' / '),
+        }));
+      const res = await postSsulApi<AnalyzeResponse>('analyze', {
+        me, partner, sessions: batch, tags, prev: [...base, ...earlier].slice(-4),
+        aus: aus.map(x => ({ key: x.key, label: x.label, chars: x.chars })),
+      } satisfies AnalyzeRequest);
+      if (!res.ok) return res.error;
+      res.data.results.forEach(r => resultsRef.current.set(r.id, r));
+      // 모델이 빠뜨린 세션은 잡담으로 (다시 보내지 않게)
+      batch.forEach(it => { if (!resultsRef.current.has(it.id)) resultsRef.current.set(it.id, { id: it.id, ssuls: [] } satisfies AnalyzeResult); });
+      setProgress(p => ({ ...p, done: p.done + batch.length }));
+    }, () => stopRef.current);
 
     if (failed || stopRef.current) {
       setError(failed ? ssulErrText(failed) : '분석을 멈췄습니다');

@@ -2,58 +2,17 @@
 // 업로드 화면(브라우저)과 /api/ssul/analyze(서버)가 같이 쓴다. 순수 함수만.
 import type { KakaoMsg } from './parse';
 import type { Session } from './segment';
-
-/* ---------- API 계약 ---------- */
-
-export interface AnalyzeSession {
-  id: string;
-  /** 사람이 읽는 대화록 — `#순번 이름: 내용` 한 줄씩 */
-  text: string;
-}
-/** 이전 결과 — 이번 세션이 그 썰의 이어지는 부분인지 판단할 때 */
-export interface PrevSsul { id: string; title: string; au: string; end: string; tail: string }
-export interface AuOption { key: string; label: string; chars: string[] }
-
-export interface AnalyzeRequest {
-  me: string;
-  partner: string;
-  sessions: AnalyzeSession[];
-  aus: AuOption[];
-  tags: string[];
-  prev: PrevSsul[];
-}
-
-/** 세션 안의 썰 하나 — 한 세션에서 주제가 바뀌면 여러 개가 나온다 */
-export interface SsulPart {
-  /** 이 썰의 첫/끝 메시지 순번 — 앞뒤·사이 잡담을 잘라낸다 */
-  from: number;
-  to: number;
-  title: string;
-  summary: string;
-  /** AuOption.key 또는 '' */
-  au: string;
-  tags: string[];
-  /** 이 썰이 이어 가는 앞 썰(partKey 또는 PrevSsul.id) — 없으면 '' */
-  continues: string;
-}
-
-export interface AnalyzeResult {
-  id: string;
-  /** 비어 있으면 잡담만 있던 세션 */
-  ssuls: SsulPart[];
-}
+import type { AnalyzeResult, AnalyzeSession, SsulPart } from './api';
 
 /** 썰 하나를 가리키는 id — 「세션id#순서」. 이어짐(continues)이 이걸로 앞 썰을 가리킨다 */
 export const partKey = (sessionId: string, k: number) => `${sessionId}#${k}`;
-
-export interface AnalyzeResponse { results: AnalyzeResult[]; error?: string }
 
 /* ---------- 입력 만들기 ---------- */
 
 const MSG_CAP = 400;          // 메시지 하나당 판별에 보낼 최대 글자 (원문은 그대로 저장된다)
 const SESSION_CAP = 40_000;   // 안전장치 — 긴 세션은 분할 단계(splitSessions maxChars)에서 이미 잘려 온다
 
-export function msgLine(m: KakaoMsg, me: string): string {
+export function msgLine(m: Pick<KakaoMsg, 'kind' | 'sender' | 'text' | 'i' | 'media' | 'sticker'>, me: string): string {
   const who = m.kind === 'system' ? '(시스템)' : m.sender === me ? `나(${m.sender})` : m.sender;
   let body: string;
   switch (m.kind) {
@@ -70,20 +29,23 @@ export function msgLine(m: KakaoMsg, me: string): string {
   return `#${m.i} ${who}: ${body}`;
 }
 
-export function sessionText(msgs: KakaoMsg[], s: Session, me: string): string {
-  const lines = msgs.slice(s.from, s.to + 1).map(m => msgLine(m, me));
+/** 줄 목록을 글자 수 상한에 맞춰 — 넘으면 앞 2/3 + 뒤 1/3만 남기고 가운데에 생략 표시 (판별·키워드 다시 붙이기 공용) */
+export function capLines(lines: string[], cap: number): string {
   const full = lines.join('\n');
-  if (full.length <= SESSION_CAP) return full;
+  if (full.length <= cap) return full;
   const head: string[] = [], tail: string[] = [];
   let n = 0;
-  for (const l of lines) { if (n + l.length > SESSION_CAP * 2 / 3) break; head.push(l); n += l.length + 1; }
+  for (const l of lines) { if (n + l.length > cap * 2 / 3) break; head.push(l); n += l.length + 1; }
   n = 0;
   for (let k = lines.length - 1; k >= head.length; k--) {
-    if (n + lines[k].length > SESSION_CAP / 3) break;
+    if (n + lines[k].length > cap / 3) break;
     tail.unshift(lines[k]); n += lines[k].length + 1;
   }
   return [...head, `… (중간 ${lines.length - head.length - tail.length}개 메시지 생략) …`, ...tail].join('\n');
 }
+
+export const sessionText = (msgs: KakaoMsg[], s: Session, me: string): string =>
+  capLines(msgs.slice(s.from, s.to + 1).map(m => msgLine(m, me)), SESSION_CAP);
 
 /** LLM에 보낼 필요도 없는 세션 — 글이 거의 없으면 썰일 수 없다 (토큰 절약) */
 export const isTrivial = (s: Session) => s.chars < 120 || s.count < 3;

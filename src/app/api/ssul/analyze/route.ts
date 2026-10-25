@@ -6,17 +6,14 @@
 //   SSUL_EFFORT  (선택) low | medium | high — 기본 low (분류라 깊게 생각할 필요가 적다)
 //   SSUL_MOCK=1  (개발용) 키 없이 글자 수로 대충 가른다 — 화면 흐름 확인용
 // 키를 가진 서버를 아무나 쓰지 못하게, 호출한 사람이 **이 홈의 관리자**인지 확인한다.
-import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
-import { verifyAdmin, claudeError } from '@/lib/serverAuth';
+import { NextRequest } from 'next/server';
+import { reply, bearer, readJson, verifyAdmin, claudeMissing, askClaudeJson } from '@/lib/ssulServer';
 import { TAG_RULES } from '@/lib/kakao/prompts';
-import type { AnalyzeRequest, AnalyzeResult, AnalyzeResponse } from '@/lib/kakao/analyze';
+import type { AnalyzeRequest, AnalyzeResult, AnalyzeResponse } from '@/lib/kakao/api';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
-
-const NO_STORE = { 'Cache-Control': 'no-store' };
 
 const SYSTEM = `You sort KakaoTalk chat logs between two friends who do 자캐 (original-character) roleplay and storytelling together. Your output feeds a personal archive of their "썰" — the stories they spin about their characters.
 
@@ -110,44 +107,18 @@ function mock(q: AnalyzeRequest): AnalyzeResult[] {
 }
 
 export async function POST(req: NextRequest) {
-  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
-  if (!(await verifyAdmin(token))) return NextResponse.json({ results: [], error: 'unauthorized' }, { status: 401, headers: NO_STORE });
+  const fail = (error: string, status: number) => reply({ results: [], error } satisfies AnalyzeResponse, status);
+  if (!(await verifyAdmin(bearer(req)))) return fail('unauthorized', 401);
+  const q = await readJson<AnalyzeRequest>(req);
+  if (!q) return fail('bad-request', 400);
+  if (!Array.isArray(q.sessions) || !q.sessions.length) return reply({ results: [] } satisfies AnalyzeResponse);
 
-  let q: AnalyzeRequest;
-  try { q = await req.json() as AnalyzeRequest; } catch { return NextResponse.json({ results: [], error: 'bad-request' }, { status: 400 }); }
-  if (!Array.isArray(q.sessions) || !q.sessions.length) return NextResponse.json({ results: [] } satisfies AnalyzeResponse);
+  const missing = claudeMissing();
+  if (missing === 'mock') return reply({ results: mock(q) } satisfies AnalyzeResponse);
+  if (missing) return fail(missing, 503);
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    if (process.env.SSUL_MOCK === '1') return NextResponse.json({ results: mock(q) } satisfies AnalyzeResponse, { headers: NO_STORE });
-    return NextResponse.json({ results: [], error: 'no-key' }, { status: 503, headers: NO_STORE });
-  }
-
-  const client = new Anthropic();
-  const effort = (['low', 'medium', 'high'].includes(process.env.SSUL_EFFORT ?? '') ? process.env.SSUL_EFFORT : 'low') as 'low' | 'medium' | 'high';
-  try {
-    const res = await client.beta.messages.create({
-      model: process.env.SSUL_MODEL || 'claude-opus-5-5',
-      max_tokens: 16000,
-      // 안전 분류기가 거절하면 서버에서 알맞은 모델로 다시 돌린다 (수위 있는 썰 대비)
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      // 시스템 지시는 업로드 내내 같다 — 묶음마다 다시 내지 않게 캐시
-      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
-      messages: [{ role: 'user', content: userContent(q) }],
-      output_config: { effort, format: { type: 'json_schema', schema: SCHEMA } },
-    });
-    if (res.stop_reason === 'refusal') {
-      return NextResponse.json({ results: [], error: 'refusal' } satisfies AnalyzeResponse, { status: 422, headers: NO_STORE });
-    }
-    if (res.stop_reason === 'max_tokens') {
-      return NextResponse.json({ results: [], error: 'too-long' } satisfies AnalyzeResponse, { status: 422, headers: NO_STORE });
-    }
-    const text = res.content.map(b => (b.type === 'text' ? b.text : '')).join('');
-    const out = JSON.parse(text) as { results: AnalyzeResult[] };
-    const ids = new Set(q.sessions.map(s => s.id));
-    return NextResponse.json({ results: out.results.filter(r => ids.has(r.id)) } satisfies AnalyzeResponse, { headers: NO_STORE });
-  } catch (err) {
-    const { error, status } = await claudeError(err);
-    return NextResponse.json({ results: [], error } satisfies AnalyzeResponse, { status, headers: NO_STORE });
-  }
+  const r = await askClaudeJson<{ results: AnalyzeResult[] }>({ system: SYSTEM, user: userContent(q), schema: SCHEMA });
+  if (!r.ok) return fail(r.error, r.status);
+  const ids = new Set(q.sessions.map(s => s.id));
+  return reply({ results: r.data.results.filter(x => ids.has(x.id)) } satisfies AnalyzeResponse);
 }
