@@ -117,19 +117,15 @@ export default function SsulPage() {
             <div key={g.ym} className="ssul-tl">
               {/* 해가 바뀔 때마다 큰 연도 제목 — 썰이 많아도 어디쯤인지 보이게 */}
               {g.ym.slice(0, 4) !== groups[gi - 1]?.ym.slice(0, 4) && (
-                <h2 className="ssul-year">{g.ym.slice(0, 4)}<small>{shown.filter(x => x.start.startsWith(g.ym.slice(0, 4))).length}개</small></h2>
+                <h2 className="ssul-year">{g.ym.slice(0, 4)}</h2>
               )}
-              <h3 className="ssul-ym">{Number(g.ym.slice(5))}월<span>{g.items.length}</span></h3>
+              <h3 className="ssul-ym">{Number(g.ym.slice(5))}월</h3>
               <div className="ssul-tl-list">
                 {g.items.map(s => (
                   <div key={s.id} className="ssul-item">
                     <i className="dot" />
                     <div className="si-date">{fmtRange(s)}</div>
                     <div className="si-main">
-                      {fav.enabled && (
-                        <button className={`ssul-star ${fav.ids.has(s.id) ? 'on' : ''}`} title={fav.ids.has(s.id) ? '즐겨찾기 해제' : '즐겨찾기'}
-                          onClick={() => fav.toggle(s.id)}>{fav.ids.has(s.id) ? '★' : '☆'}</button>
-                      )}
                       <a className="si-title" onClick={() => router.push(`/ssul/${s.id}`)}>{s.title}</a>
                       {s.visibility !== 'public' && <span className="pill" style={{ marginLeft: 6 }}>{VIS_LABEL[s.visibility]}</span>}
                       {s.summary && <p className="si-sum">{s.summary}</p>}
@@ -139,6 +135,10 @@ export default function SsulPage() {
                         <small>{s.count}개 메시지</small>
                       </div>
                     </div>
+                    {fav.enabled && (
+                      <button className={`ssul-star ${fav.ids.has(s.id) ? 'on' : ''}`} title={fav.ids.has(s.id) ? '즐겨찾기 해제' : '즐겨찾기'}
+                        onClick={() => fav.toggle(s.id)}>{fav.ids.has(s.id) ? '★' : '☆'}</button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -156,19 +156,24 @@ export default function SsulPage() {
               ★ 즐겨찾기만 <small>{fav.ids.size ? ssuls.filter(s => fav.ids.has(s.id)).length : 0}</small>
             </div>
           )}
+          <h4>정렬</h4>
+          <KRadio name="ssul-ord" value="asc" current={order} onChange={() => setOrder('asc')} label="오래된 순" />
+          <div style={{ height: 7 }} />
+          <KRadio name="ssul-ord" value="desc" current={order} onChange={() => setOrder('desc')} label="최신 순" />
+          <div style={{ height: 16 }} />
           {yearCounts.length > 0 && (
             <>
               <h4>기간</h4>
-              <div className={`tag ${year === 'all' ? 'on' : ''}`} onClick={() => pickYear('all')}>전체 기간 <small>{filtered.length}</small></div>
-              {yearCounts.map(([y, n]) => (
+              <div className={`tag ${year === 'all' ? 'on' : ''}`} onClick={() => pickYear('all')}>전체 기간</div>
+              {yearCounts.map(([y]) => (
                 <React.Fragment key={y}>
-                  <div className={`tag ${year === y ? 'on' : ''}`} onClick={() => pickYear(year === y ? 'all' : y)}>{y}년 <small>{n}</small></div>
+                  <div className={`tag ${year === y ? 'on' : ''}`} onClick={() => pickYear(year === y ? 'all' : y)}>{y}년</div>
                   {year === y && (
                     <div className="ssul-months">
                       {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(mm => {
                         const n2 = monthCounts.get(mm) ?? 0;
                         return (
-                          <button key={mm} disabled={!n2} className={month === mm ? 'on' : ''} title={n2 ? `${n2}개` : ''}
+                          <button key={mm} disabled={!n2} className={month === mm ? 'on' : ''}
                             onClick={() => setMonth(month === mm ? 'all' : mm)}>{Number(mm)}월</button>
                         );
                       })}
@@ -199,10 +204,6 @@ export default function SsulPage() {
               </div>
             </>
           )}
-          <h4 style={{ marginTop: 18 }}>정렬</h4>
-          <KRadio name="ssul-ord" value="asc" current={order} onChange={() => setOrder('asc')} label="오래된 순" />
-          <div style={{ height: 7 }} />
-          <KRadio name="ssul-ord" value="desc" current={order} onChange={() => setOrder('desc')} label="최신 순" />
         </div>
       </div>
     </section>

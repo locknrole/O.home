@@ -2011,3 +2011,16 @@ html[data-scheme="dark"] .si-date{color:color-mix(in srgb,var(--ink) 74%,var(--p
 .ssul-star:hover{color:var(--btn-dark,var(--ink));transform:scale(1.15)}
 .ssul-star.on{color:#f2c94c}
 .ssul-title .ssul-star{font-size:.85em;vertical-align:1px}
+
+/* 즐겨찾기 별은 줄 오른쪽 끝에 (사용자 요청) — 타임라인은 세 번째 칸, 상세는 제목 줄 끝 */
+.ssul-item{grid-template-columns:118px 1fr auto}
+.ssul-item > .ssul-star{align-self:start;margin:2px 0 0 8px;font-size:calc(18px*var(--fs,1))}
+.ssul-title{display:flex;align-items:flex-start;gap:10px}
+.ssul-title > span{flex:1;min-width:0}
+.ssul-title > .ssul-star{margin:4px 0 0;font-size:.85em}
+@media(max-width:620px){
+  .ssul-item{grid-template-columns:1fr auto}
+  .ssul-item > .si-date{grid-column:1}
+  .ssul-item > .si-main{grid-column:1}
+  .ssul-item > .ssul-star{grid-column:2;grid-row:1 / span 2}
+}

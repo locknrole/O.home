@@ -158,11 +158,11 @@ export default function SsulDetailPage() {
         ) : (
           <>
             <h2 className="ssul-title">
+              <span>{view.title}</span>
               {fav.enabled && (
                 <button className={`ssul-star ${fav.ids.has(s.id) ? 'on' : ''}`} title={fav.ids.has(s.id) ? '즐겨찾기 해제' : '즐겨찾기'}
                   onClick={() => fav.toggle(s.id)}>{fav.ids.has(s.id) ? '★' : '☆'}</button>
               )}
-              {view.title}
             </h2>
             {view.summary && <p className="si-sum">{view.summary}</p>}
             <div className="si-tags">

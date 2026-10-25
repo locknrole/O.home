@@ -16,7 +16,7 @@ export interface TagSuggestRequest { tags: { tag: string; count: number }[] }
 export interface TagSuggestResponse { groups: TagGroup[]; error?: string }
 
 const SYSTEM = `You tidy the keyword tags of a personal archive of Korean character-roleplay stories ("썰").
-Group tags that mean the same thing or are trivial variants of one another (synonyms, spelling or spacing variants, abbreviations, verb/noun forms — e.g. "가정상황" and "IF", "업어주기" and "업기"). Do not group tags that are merely related (e.g. "비" and "눈", "재회" and "이별").
+Group tags that mean the same thing or are trivial variants of one another (synonyms, spelling or spacing variants, abbreviations, verb/noun forms — e.g. "가정상황" and "IF", "업어주기" and "업기"). Do not group tags that are merely related (e.g. "비" and "눈", "재회" and "이별"), and never fold a specific tag into a broader one (e.g. "안드로이드" or "뱀파이어" into "IF", "학원" into "AU") — the specific tag is what people search for.
 For each group pick the canonical tag: prefer the one the archive already uses most (highest count), unless another member is clearly the more standard short form. The canonical tag must be one of the members.
 Only return groups with two or more members. Tags that have no synonym in the list are left out.`;
 
