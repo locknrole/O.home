@@ -136,6 +136,8 @@ export const COLLECTION_OF: Record<string, string> = {
   'ohome.ssulbody.v1': 'ssul_bodies',
   // 업로드 기록 — 상대별로 어디까지 올렸는지 (다음 업로드에서 겹치는 기간을 건너뛴다). 관리자만
   'ohome.ssulimp.v1': 'ssul_imports',
+  // 썰 즐겨찾기 — 회원마다 한 문서(나만보기). 남의 즐겨찾기는 서버가 내주지 않는다
+  'ohome.ssulfav.v1': 'ssul_favs',
 };
 
 export const CONTENT_COLLECTIONS = Object.values(COLLECTION_OF);

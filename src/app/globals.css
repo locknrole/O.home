@@ -1995,3 +1995,19 @@ html[data-scheme="dark"] .sc-media{border-color:color-mix(in srgb,var(--ink) 25%
 html[data-scheme="dark"] .sc-gap{background:color-mix(in srgb,var(--ink) 18%,var(--panel-solid))}
 html[data-scheme="dark"] .sn-item small,
 html[data-scheme="dark"] .si-date{color:color-mix(in srgb,var(--ink) 74%,var(--panel-solid))}
+
+/* 썰 타임라인 — 연도 큰 제목 + 월 작은 제목, 기간 필터의 월 칸, 즐겨찾기 별 */
+.ssul-year{font-family:var(--serif);font-size:calc(30px*var(--fs,1));font-weight:600;letter-spacing:.06em;color:var(--page-title,#eceef1);margin:26px 0 12px;padding-bottom:6px;border-bottom:1px solid color-mix(in srgb,var(--page-title,#eceef1) 25%,transparent);display:flex;align-items:baseline;gap:10px}
+.ssul-tl:first-child .ssul-year{margin-top:0}
+.ssul-year small{font-family:var(--sans);font-size:calc(12px*var(--fs,1));font-weight:400;letter-spacing:0;color:var(--page-desc,#9a9a9a)}
+.ssul-ym{font-size:calc(16px*var(--fs,1))}
+.ssul-ym span{font-family:var(--sans);font-size:calc(11px*var(--fs,1));opacity:.6;margin-left:8px;letter-spacing:0}
+.ssul-months{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:4px 0 8px 6px}
+.ssul-months button{padding:5px 0;border-radius:7px;font-size:calc(11px*var(--fs,1));color:var(--sub);background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.ssul-months button:hover:not(:disabled){background:color-mix(in srgb,var(--ink) 11%,transparent);color:var(--ink)}
+.ssul-months button.on{background:var(--btn-dark,var(--ink));color:var(--btn-dark-fg,#fff)}
+.ssul-months button:disabled{opacity:.3;cursor:default}
+.ssul-star{font-size:calc(15px*var(--fs,1));line-height:1;color:var(--faint);margin-right:6px;vertical-align:-1px;transition:transform .12s}
+.ssul-star:hover{color:var(--btn-dark,var(--ink));transform:scale(1.15)}
+.ssul-star.on{color:#f2c94c}
+.ssul-title .ssul-star{font-size:.85em;vertical-align:1px}

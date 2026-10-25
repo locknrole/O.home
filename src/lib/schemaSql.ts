@@ -122,6 +122,7 @@ declare content_tables text[] := array[
   'ssul',         -- 썰 백업 목록 (카톡 아카이브)
   'ssul_bodies',  -- 썰 대화 본문 (목록과 분리)
   'ssul_imports', -- 썰 업로드 기록 (상대별 마지막 대화 시각)
+  'ssul_favs',    -- 썰 즐겨찾기 (회원마다 한 행, 나만보기)
   'push_subs'     -- 웹푸시 기기 구독 (자놀 이식 — 회원마다 기기별 한 문서, 공개범위 member)
 ];
 begin

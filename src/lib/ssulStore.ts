@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { backend, isServerMode } from './backend';
 import { getSetting, setSetting, onSettingChange } from './settingStore';
 import { syncList } from './db';
+import { useLocalList } from './postStore';
 import { currentUserId } from './currentUser';
 import type { Visibility } from './charStore';
 import type { MsgKind } from './kakao/parse';
@@ -192,4 +193,25 @@ export function useSsulDict(): [SsulDict, (d: SsulDict) => void] {
     return onSettingChange(k => { if (k === SSUL_DICT_KEY) setD(read()); });
   }, []);
   return [d, (next: SsulDict) => { setD(next); setSetting(SSUL_DICT_KEY, next); }];
+}
+
+/* ---------- 즐겨찾기 — 회원마다 따로 ----------
+   회원 한 명 = 문서 하나(id: fav_<회원id>, 나만보기). 목록 질의에서 남의 문서는 서버가 걸러 준다
+   (관리자는 전부 받지만 화면은 자기 것만 쓴다). 로그인하지 않으면 즐겨찾기 없음 */
+export const SSUL_FAV_KEY = 'ohome.ssulfav.v1';
+export interface SsulFav { id: string; ids: string[]; visibility: Visibility; authorId?: string }
+export const SSUL_FAV_SEED: SsulFav[] = [];
+
+export function useSsulFavs(userId: string | undefined): { ids: Set<string>; toggle: (ssulId: string) => void; enabled: boolean } {
+  const [favs, setFavs] = useLocalList<SsulFav>(SSUL_FAV_KEY, SSUL_FAV_SEED);
+  const docId = userId ? `fav_${userId}` : '';
+  const mine = favs.find(f => f.id === docId);
+  const ids = new Set(mine?.ids ?? []);
+  const toggle = (ssulId: string) => {
+    if (!userId) return;
+    const nextIds = ids.has(ssulId) ? [...ids].filter(x => x !== ssulId) : [...ids, ssulId];
+    const doc: SsulFav = { id: docId, ids: nextIds, visibility: 'private', authorId: userId };
+    setFavs(mine ? favs.map(f => (f.id === docId ? doc : f)) : [...favs, doc]);
+  };
+  return { ids, toggle, enabled: !!userId };
 }
