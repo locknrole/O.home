@@ -45,7 +45,6 @@ export default function SsulPage() {
     setSsuls(ssuls.map(s => (s.password ? { ...s, password: undefined } : s)));
   }, [loaded, isAdmin, ssuls, setSsuls]);
 
-  const favKey = [...fav.ids].join(',');
   // 기간을 뺀 나머지 조건 — 기간 칸의 개수는 이걸 기준으로 센다 (다른 조건과 맞물리게)
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -55,8 +54,7 @@ export default function SsulPage() {
       .filter(s => !favOnly || fav.ids.has(s.id))
       .filter(s => !needle || s.title.toLowerCase().includes(needle) || (s.summary ?? '').toLowerCase().includes(needle)
         || s.tags.some(t => t.toLowerCase().includes(needle)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ssuls, au, tags, q, isAdmin, favOnly, favKey]);
+  }, [ssuls, au, tags, q, favOnly, fav.ids]);
   const shown = useMemo(() => filtered
     .filter(s => year === 'all' || s.start.slice(0, 4) === year)
     .filter(s => month === 'all' || s.start.slice(5, 7) === month)

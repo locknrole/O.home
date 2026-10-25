@@ -1,18 +1,16 @@
 'use client';
-// 썰 관리 (업로드 화면 아래) — 이름 바꾸기 · 키워드 정리 · 전체 삭제.
+// 썰 관리 (업로드 화면 아래) — 이름 바꾸기 · 키워드 정리 · 키워드 다시 붙이기 · 전체 삭제.
 // 이름·키워드 규칙은 사전(SsulDict)에 남아 다음 업로드부터 자동 적용된다.
 import React, { useMemo, useRef, useState } from 'react';
-import { backend } from '@/lib/backend';
 import {
   Ssul, SsulImport, SsulBody, SsulDict, fetchBody, saveBodies, normTags, renameMsgs,
+  auKeyOf, ssulErrText, fmtDay, postSsulApi, runPool,
 } from '@/lib/ssulStore';
 import { KInput, KCheck } from '@/components/ui/Kit';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
-import type { TagGroup, TagSuggestResponse } from '@/app/api/ssul/tags/route';
-import type { RetagItem, RetagResponse } from '@/app/api/ssul/retag/route';
-import { msgLine } from '@/lib/kakao/analyze';
-import { auKeyOf, ssulErrText, fmtDay } from '@/lib/ssulStore';
+import type { TagGroup, TagSuggestRequest, TagSuggestResponse, RetagItem, RetagRequest, RetagResponse } from '@/lib/kakao/api';
+import { msgLine, capLines } from '@/lib/kakao/analyze';
 
 export function SsulManage({ ssuls, setSsuls, imps, setImps, dict, setDict, draftTags, onDict, knownNames, aus }: {
   ssuls: Ssul[];
@@ -71,19 +69,13 @@ export function SsulManage({ ssuls, setSsuls, imps, setImps, dict, setDict, draf
 
   async function suggest() {
     setSuggesting(true);
-    try {
-      const token = (await backend()?.authToken()) ?? '';
-      const res = await fetch('/api/ssul/tags', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tags: counts.map(([tag, c]) => ({ tag, count: c.saved + c.draft })) }),
-      });
-      const j = await res.json() as TagSuggestResponse;
-      if (!res.ok || j.error) { toast(j.error === 'no-key' ? '서버에 ANTHROPIC_API_KEY가 없습니다' : `제안을 받지 못했습니다: ${j.error ?? res.status}`); return; }
-      setGroups(j.groups.map(g => ({ ...g, on: true })));
-      if (!j.groups.length) toast('통일할 만한 비슷한 키워드를 찾지 못했습니다');
-    } catch (e) {
-      toast(e instanceof Error ? e.message : '제안을 받지 못했습니다');
-    } finally { setSuggesting(false); }
+    const res = await postSsulApi<TagSuggestResponse>('tags', {
+      tags: counts.map(([tag, c]) => ({ tag, count: c.saved + c.draft })),
+    } satisfies TagSuggestRequest);
+    setSuggesting(false);
+    if (!res.ok) { toast(`제안을 받지 못했습니다 — ${ssulErrText(res.error)}`); return; }
+    setGroups(res.data.groups.map(g => ({ ...g, on: true })));
+    if (!res.data.groups.length) toast('통일할 만한 비슷한 키워드를 찾지 못했습니다');
   }
   const applyGroups = () => {
     if (!groups) return;
@@ -144,16 +136,6 @@ export function SsulManage({ ssuls, setSsuls, imps, setImps, dict, setDict, draf
   const [rtKeep, setRtKeep] = useState(false);
   const [rtSel, setRtSel] = useState<Set<string>>(new Set());
 
-  const cap = (lines: string[]) => {
-    const full = lines.join('\n');
-    if (full.length <= RETAG_CAP) return full;
-    const head: string[] = [], tail: string[] = [];
-    let n = 0;
-    for (const l of lines) { if (n + l.length > RETAG_CAP * 2 / 3) break; head.push(l); n += l.length + 1; }
-    n = 0;
-    for (let k = lines.length - 1; k >= head.length; k--) { if (n + lines[k].length > RETAG_CAP / 3) break; tail.unshift(lines[k]); n += lines[k].length + 1; }
-    return [...head, `… (중간 ${lines.length - head.length - tail.length}개 생략) …`, ...tail].join('\n');
-  };
   /** 적용할 최종 키워드 — 「기존 유지」면 기존 + 새로, 아니면 새로만. 사전 규칙(통일·삭제)도 함께 */
   const finalTags = (s: Ssul) => {
     const fresh = rtResults.current.get(s.id) ?? [];
@@ -167,31 +149,22 @@ export function SsulManage({ ssuls, setSsuls, imps, setImps, dict, setDict, draf
     const batches: Ssul[][] = [];
     for (let i = 0; i < todo.length; i += RETAG_BATCH) batches.push(todo.slice(i, i + RETAG_BATCH));
     setRt({ phase: 'running', done: ssuls.length - todo.length, total: ssuls.length, error: '' });
-    const token = (await backend()?.authToken()) ?? '';
     const tags = [...new Set(ssuls.flatMap(s => s.tags))].slice(0, 300);
     const auLabel = (s: Ssul) => aus.find(a => a.key === auKeyOf(s))?.label ?? '';
-    let next = 0, failed = '';
-    const worker = async () => {
-      while (!failed && !rtStop.current && next < batches.length) {
-        const batch = batches[next++];
-        try {
-          const items: RetagItem[] = [];
-          for (const s of batch) {
-            const b = await fetchBody(s.id);
-            items.push({ id: s.id, title: s.title, summary: s.summary ?? '', au: auLabel(s), text: cap((b?.msgs ?? []).map(m => msgLine(m, s.me ?? ''))) });
-          }
-          const res = await fetch('/api/ssul/retag', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ items, tags }),
-          });
-          const j = await res.json() as RetagResponse;
-          if (!res.ok || j.error) { failed = j.error || `HTTP ${res.status}`; return; }
-          j.results.forEach(r => rtResults.current.set(r.id, r.tags));
-          setRt(p => ({ ...p, done: p.done + batch.length }));
-        } catch (e) { failed = e instanceof Error ? e.message : String(e); }
+    const failed = await runPool(batches, 3, async batch => {
+      const items: RetagItem[] = [];
+      for (const s of batch) {
+        const b = await fetchBody(s.id);
+        items.push({
+          id: s.id, title: s.title, summary: s.summary ?? '', au: auLabel(s),
+          text: capLines((b?.msgs ?? []).map(m => msgLine(m, s.me ?? '')), RETAG_CAP),
+        });
       }
-    };
-    await Promise.all(Array.from({ length: Math.min(3, batches.length) }, worker));
+      const res = await postSsulApi<RetagResponse>('retag', { items, tags } satisfies RetagRequest);
+      if (!res.ok) return res.error;
+      res.data.results.forEach(r => rtResults.current.set(r.id, r.tags));
+      setRt(p => ({ ...p, done: p.done + batch.length }));
+    }, () => rtStop.current);
     if (failed || rtStop.current) {
       setRt(p => ({ ...p, phase: 'idle', error: failed ? ssulErrText(failed) : '멈췄습니다 — 다시 누르면 이어서 진행합니다' }));
       return;

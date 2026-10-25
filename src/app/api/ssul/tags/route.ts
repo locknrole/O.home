@@ -1,19 +1,13 @@
 // 썰 키워드 정리 제안 — 뜻이 같은 키워드끼리 묶어 「무엇으로 통일할지」를 돌려준다 (예: 가정상황·만약에 → IF).
 // 바로 고치지 않는다 — 업로드 화면에서 관리자가 묶음마다 보고 적용한다.
 // 키·모델 설정은 /api/ssul/analyze와 같다 (ANTHROPIC_API_KEY · SSUL_MODEL · SSUL_MOCK).
-import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
-import { verifyAdmin, claudeError } from '@/lib/serverAuth';
+import { NextRequest } from 'next/server';
+import { reply, bearer, readJson, verifyAdmin, claudeMissing, askClaudeJson } from '@/lib/ssulServer';
+import type { TagGroup, TagSuggestRequest, TagSuggestResponse } from '@/lib/kakao/api';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
-
-const NO_STORE = { 'Cache-Control': 'no-store' };
-
-export interface TagGroup { canonical: string; members: string[] }
-export interface TagSuggestRequest { tags: { tag: string; count: number }[] }
-export interface TagSuggestResponse { groups: TagGroup[]; error?: string }
 
 const SYSTEM = `You tidy the keyword tags of a personal archive of Korean character-roleplay stories ("썰").
 Group tags that mean the same thing or are trivial variants of one another (synonyms, spelling or spacing variants, abbreviations, verb/noun forms — e.g. "가정상황" and "IF", "업어주기" and "업기"). Do not group tags that are merely related (e.g. "비" and "눈", "재회" and "이별"), and never fold a specific tag into a broader one (e.g. "안드로이드" or "뱀파이어" into "IF", "학원" into "AU") — the specific tag is what people search for.
@@ -53,42 +47,26 @@ function mock(tags: { tag: string; count: number }[]): TagGroup[] {
 }
 
 export async function POST(req: NextRequest) {
-  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
-  if (!(await verifyAdmin(token))) return NextResponse.json({ groups: [], error: 'unauthorized' } satisfies TagSuggestResponse, { status: 401, headers: NO_STORE });
-
-  let q: TagSuggestRequest;
-  try { q = await req.json() as TagSuggestRequest; } catch { return NextResponse.json({ groups: [], error: 'bad-request' }, { status: 400 }); }
+  const fail = (error: string, status: number) => reply({ groups: [], error } satisfies TagSuggestResponse, status);
+  if (!(await verifyAdmin(bearer(req)))) return fail('unauthorized', 401);
+  const q = await readJson<TagSuggestRequest>(req);
+  if (!q) return fail('bad-request', 400);
   const tags = (q.tags ?? []).filter(t => t && typeof t.tag === 'string' && t.tag.trim()).slice(0, 1000);
-  if (tags.length < 2) return NextResponse.json({ groups: [] } satisfies TagSuggestResponse, { headers: NO_STORE });
+  if (tags.length < 2) return reply({ groups: [] } satisfies TagSuggestResponse);
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    if (process.env.SSUL_MOCK === '1') return NextResponse.json({ groups: mock(tags) } satisfies TagSuggestResponse, { headers: NO_STORE });
-    return NextResponse.json({ groups: [], error: 'no-key' }, { status: 503, headers: NO_STORE });
-  }
+  const missing = claudeMissing();
+  if (missing === 'mock') return reply({ groups: mock(tags) } satisfies TagSuggestResponse);
+  if (missing) return fail(missing, 503);
 
-  const client = new Anthropic();
-  try {
-    const res = await client.beta.messages.create({
-      model: process.env.SSUL_MODEL || 'claude-opus-5-5',
-      max_tokens: 16000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      system: SYSTEM,
-      messages: [{ role: 'user', content: `Tags (tag × count):\n${tags.map(t => `${t.tag} × ${t.count}`).join('\n')}` }],
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
-    });
-    if (res.stop_reason === 'refusal' || res.stop_reason === 'max_tokens') {
-      return NextResponse.json({ groups: [], error: res.stop_reason } satisfies TagSuggestResponse, { status: 422, headers: NO_STORE });
-    }
-    const text = res.content.map(b => (b.type === 'text' ? b.text : '')).join('');
-    const known = new Set(tags.map(t => t.tag));
-    // 모델이 목록에 없는 키워드를 지어내면 버린다
-    const groups = (JSON.parse(text) as { groups: TagGroup[] }).groups
-      .map(g => ({ canonical: g.canonical, members: [...new Set(g.members.filter(m => known.has(m)))] }))
-      .filter(g => g.members.length >= 2 && g.members.includes(g.canonical));
-    return NextResponse.json({ groups } satisfies TagSuggestResponse, { headers: NO_STORE });
-  } catch (err) {
-    const { error, status } = await claudeError(err);
-    return NextResponse.json({ groups: [], error } satisfies TagSuggestResponse, { status, headers: NO_STORE });
-  }
+  const r = await askClaudeJson<{ groups: TagGroup[] }>({
+    system: SYSTEM, schema: SCHEMA,
+    user: `Tags (tag × count):\n${tags.map(t => `${t.tag} × ${t.count}`).join('\n')}`,
+  });
+  if (!r.ok) return fail(r.error, r.status);
+  // 모델이 목록에 없는 키워드를 지어내면 버린다
+  const known = new Set(tags.map(t => t.tag));
+  const groups = r.data.groups
+    .map(g => ({ canonical: g.canonical, members: [...new Set(g.members.filter(m => known.has(m)))] }))
+    .filter(g => g.members.length >= 2 && g.members.includes(g.canonical));
+  return reply({ groups } satisfies TagSuggestResponse);
 }
