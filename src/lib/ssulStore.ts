@@ -212,3 +212,17 @@ export function useSsulFavs(userId: string | undefined): { ids: Set<string>; tog
   };
   return { ids, toggle, enabled: !!userId };
 }
+
+/** /api/ssul/* 오류 코드 → 안내 문구 (업로드·썰 관리 공용) */
+export function ssulErrText(code: string): string {
+  const T: Record<string, string> = {
+    'no-key': '서버에 ANTHROPIC_API_KEY가 없습니다 — Vercel 환경변수에 등록하고 다시 배포해 주세요',
+    'bad-key': 'ANTHROPIC_API_KEY가 올바르지 않습니다',
+    'no-credit': 'Anthropic API 크레딧이 부족합니다 — console.anthropic.com → Billing에서 충전한 뒤 이어서 진행해 주세요',
+    'unauthorized': '관리자 로그인이 필요합니다',
+    'rate-limit': '요청이 몰려 잠시 막혔습니다 — 조금 뒤 이어서 진행해 주세요',
+    'refusal': '이 묶음은 모델이 처리를 거절했습니다',
+    'too-long': '응답이 너무 길어졌습니다 — 다시 시도해 주세요',
+  };
+  return T[code] ?? `실패: ${code}`;
+}

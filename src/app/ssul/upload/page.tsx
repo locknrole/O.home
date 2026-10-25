@@ -15,7 +15,7 @@ import { Relation, REL_SEED, Character, CHAR_SEED, Visibility } from '@/lib/char
 import {
   Ssul, SSUL_KEY, SSUL_SEED, SsulImport, SSUL_IMP_KEY, SSUL_IMP_SEED, SsulBody, SsulMsg,
   lastImportedAt, fmtDay, fmtRange, auChoices, splitAuKey, auKeyOf, fetchBody, saveBodies,
-  useSsulDict, normTags, renameMsgs, type SsulDict,
+  useSsulDict, normTags, renameMsgs, ssulErrText, type SsulDict,
 } from '@/lib/ssulStore';
 import { parseKakao, type KakaoMsg, type ParseResult } from '@/lib/kakao/parse';
 import { splitSessions, type Session } from '@/lib/kakao/segment';
@@ -37,14 +37,6 @@ const VIS_OPTIONS = [
   { value: 'member', label: '멤버공개' },
   { value: 'private', label: '나만보기' },
 ];
-const ERR_TEXT: Record<string, string> = {
-  'no-key': '서버에 ANTHROPIC_API_KEY가 없습니다 — Vercel 환경변수에 등록하고 다시 배포해 주세요',
-  'bad-key': 'ANTHROPIC_API_KEY가 올바르지 않습니다',
-  'unauthorized': '관리자 로그인이 필요합니다',
-  'rate-limit': '요청이 몰려 잠시 막혔습니다 — 조금 뒤 [이어서 분석]을 눌러 주세요',
-  'refusal': '이 묶음은 모델이 처리를 거절했습니다',
-  'too-long': '응답이 너무 길어졌습니다 — 다시 시도해 주세요',
-};
 const CONCURRENCY = 3;
 
 interface Row extends Draft {
@@ -210,7 +202,7 @@ export default function SsulUploadPage() {
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, batches.length) }, worker));
 
     if (failed || stopRef.current) {
-      setError(failed ? (ERR_TEXT[failed] ?? `분석 실패: ${failed}`) : '분석을 멈췄습니다');
+      setError(failed ? ssulErrText(failed) : '분석을 멈췄습니다');
       setPhase('idle');
       return;
     }
@@ -401,7 +393,8 @@ export default function SsulUploadPage() {
       <SsulManage ssuls={ssuls} setSsuls={setSsuls} imps={imps} setImps={setImps} dict={dict} setDict={setDict}
         draftTags={rows.filter(r => r.include && !r.appendTo).flatMap(r => r.tagText.split(',').map(t => t.trim()).filter(Boolean))}
         onDict={(nd: SsulDict) => setRows(rs => rs.map(r => ({ ...r, tagText: normTags(r.tagText.split(','), nd).join(', ') })))}
-        knownNames={[...new Set([...senders, ...ssuls.flatMap(x => [x.me ?? '', x.partner])].filter(Boolean))]} />
+        knownNames={[...new Set([...senders, ...ssuls.flatMap(x => [x.me ?? '', x.partner])].filter(Boolean))]}
+        aus={aus} />
     </section>
   );
 }

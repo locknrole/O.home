@@ -2024,3 +2024,18 @@ html[data-scheme="dark"] .si-date{color:color-mix(in srgb,var(--ink) 74%,var(--p
   .ssul-item > .si-main{grid-column:1}
   .ssul-item > .ssul-star{grid-column:2;grid-row:1 / span 2}
 }
+
+/* 키워드 다시 붙이기 — 전/후 검토 목록 */
+.sm-retag{display:grid;gap:10px}
+.sm-link{font-size:calc(11.5px*var(--fs,1));color:var(--faint);text-decoration:underline;cursor:var(--cur-pointer,pointer)}
+.sm-link:hover{color:var(--ink)}
+.sm-retag-list{display:grid;gap:2px;max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius-s);padding:6px}
+.sm-retag-row{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:8px;border-radius:8px}
+.sm-retag-row:hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.sm-retag-row.off{opacity:.45}
+.sm-retag-title{font-size:calc(12.5px*var(--fs,1));color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sm-retag-title small{font-weight:400;color:var(--faint);margin-right:4px}
+.sm-retag-tags{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:5px;font-size:calc(11px*var(--fs,1))}
+.sm-retag-tags .old{color:var(--faint);text-decoration:line-through}
+.sm-retag-tags > span:not(.pill):not(.old){color:var(--faint)}
+.sm-retag-tags .pill{padding:2px 8px}

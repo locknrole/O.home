@@ -3,7 +3,7 @@
 // 키·모델 설정은 /api/ssul/analyze와 같다 (ANTHROPIC_API_KEY · SSUL_MODEL · SSUL_MOCK).
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { verifyAdmin } from '@/lib/serverAuth';
+import { verifyAdmin, claudeError } from '@/lib/serverAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -88,12 +88,7 @@ export async function POST(req: NextRequest) {
       .filter(g => g.members.length >= 2 && g.members.includes(g.canonical));
     return NextResponse.json({ groups } satisfies TagSuggestResponse, { headers: NO_STORE });
   } catch (err) {
-    const status = err instanceof Anthropic.RateLimitError ? 429
-      : err instanceof Anthropic.AuthenticationError ? 503
-        : err instanceof Anthropic.APIError ? (err.status ?? 502) : 502;
-    const error = err instanceof Anthropic.AuthenticationError ? 'bad-key'
-      : err instanceof Anthropic.RateLimitError ? 'rate-limit'
-        : err instanceof Error ? err.message : String(err);
+    const { error, status } = await claudeError(err);
     return NextResponse.json({ groups: [], error } satisfies TagSuggestResponse, { status, headers: NO_STORE });
   }
 }
