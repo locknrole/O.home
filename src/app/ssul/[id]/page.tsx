@@ -14,6 +14,7 @@ import { PageTitle } from '@/components/ui/PageText';
 import { useConfirmDelete } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { ChatView } from '@/components/ssul/ChatView';
+import { SsulNavigator, type NavPick } from '@/components/ssul/SsulNavigator';
 
 const VIS_OPTIONS = [
   { value: 'public', label: '전체공개' },
@@ -39,6 +40,9 @@ export default function SsulDetailPage() {
   const [ed, setEd] = useState<EditState | null>(null);
   const [tagIn, setTagIn] = useState('');
   const [saving, setSaving] = useState(false);
+  // 내비게이터에서 고른 키워드·AU — 다른 썰로 옮겨 가면 풀린다
+  const [pick, setPick] = useState<NavPick>(null);
+  useEffect(() => { setPick(null); }, [id]);
   // 비밀번호 썰 — 맞히면 이 탭을 닫을 때까지 열람 유지 (TRPG 로그와 같은 방식)
   const [unlocked, setUnlocked] = useState(false);
   const [pwTry, setPwTry] = useState('');
@@ -158,6 +162,8 @@ export default function SsulDetailPage() {
         </div>
       </div>
 
+      <div className="ssul-detail-grid">
+      <div className="sd-main">
       <div className="panel ssul-head">
         {ed ? (
           <div style={{ display: 'grid', gap: 9 }}>
@@ -188,7 +194,10 @@ export default function SsulDetailPage() {
               {au && rel && <span className="pill dark" onClick={() => router.push(`${relPath(rel)}${s.auId ? `?au=${s.auId}` : ''}`)}>{au.label}</span>}
               {s.visibility !== 'public' && <span className="pill">{s.visibility === 'member' ? '멤버공개' : '나만보기'}</span>}
               {s.password && <span className="pill">🔒 비밀번호</span>}
-              {view.tags.map(t => <span key={t} className="pill">#{t}</span>)}
+              {view.tags.map(t => (
+                <span key={t} className={`pill ${pick && 'tag' in pick && pick.tag === t ? 'red' : ''}`} style={{ cursor: 'var(--cur-pointer,pointer)' }}
+                  title="같은 키워드의 다른 썰" onClick={() => setPick(pick && 'tag' in pick && pick.tag === t ? null : { tag: t })}>#{t}</span>
+              ))}
             </div>
           </>
         )}
@@ -210,6 +219,10 @@ export default function SsulDetailPage() {
           {next ? <a onClick={() => router.push(`/ssul/${next.id}`)}>{next.title} ›</a> : <span />}
         </div>
       )}
+      </div>
+      {/* 편집 중엔 숨긴다 — 저장 안 한 채로 다른 썰로 넘어가지 않게 */}
+      {!ed && <SsulNavigator ssuls={ssuls} current={s} aus={aus} pick={pick} onPick={setPick} onGo={x => router.push(`/ssul/${x}`)} />}
+      </div>
       {del.element}
     </section>
   );

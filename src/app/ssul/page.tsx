@@ -1,7 +1,7 @@
 'use client';
 // 썰 (카톡 아카이브) — 채팅 날짜 기준 타임라인. 제목을 누르면 대화 상세로.
 // 오른쪽에서 AU·태그로 거른다 (태그는 여러 개 고르면 모두 가진 썰만).
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
@@ -25,6 +25,13 @@ export default function SsulPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [q, setQ] = useState('');
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
+  // 썰 상세 내비게이터의 「전체 보기」 — ?tag= / ?au= 로 걸러진 채 열린다
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const t = q.get('tag'), a = q.get('au');
+    if (t) setTags([t]);
+    if (a) setAu(a);
+  }, []);
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
