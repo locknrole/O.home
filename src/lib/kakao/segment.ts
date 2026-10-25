@@ -26,6 +26,9 @@ export interface Session {
 export interface SplitOptions {
   /** 이 간격(분) 이상 쉬면 새 세션. 기본 180분 */
   gapMin?: number;
+  /** 세션 하나가 이 글자 수를 넘으면 거기서 끊는다 — 판별에 한 번에 보내기엔 너무 긴 세션(밤샘 썰 등).
+   *  끊긴 조각은 판별 단계에서 「이어짐」으로 다시 합쳐진다. 기본 20,000자 */
+  maxChars?: number;
 }
 
 /** 'YYYY-MM-DDTHH:mm' → 분 (타임존 무시 — 둘 다 같은 기기 시간이라 차이만 맞으면 된다) */
@@ -65,17 +68,21 @@ function summarize(msgs: KakaoMsg[], gapBefore: number | null): Session {
 
 export function splitSessions(msgs: KakaoMsg[], opt: SplitOptions = {}): Session[] {
   const gapMin = opt.gapMin ?? 180;
+  const maxChars = opt.maxChars ?? 20_000;
   const out: Session[] = [];
   let buf: KakaoMsg[] = [];
   let lastEnd: number | null = null;
+  let chars = 0;
   for (const m of msgs) {
     const t = toMin(m.at);
-    if (buf.length && t - toMin(buf[buf.length - 1].at) >= gapMin) {
+    if (buf.length && (t - toMin(buf[buf.length - 1].at) >= gapMin || chars + m.text.length > maxChars)) {
       out.push(summarize(buf, lastEnd === null ? null : toMin(buf[0].at) - lastEnd));
       lastEnd = toMin(buf[buf.length - 1].at);
       buf = [];
+      chars = 0;
     }
     buf.push(m);
+    chars += m.text.length + 20;   // 이름·순번 몫
   }
   if (buf.length) out.push(summarize(buf, lastEnd === null ? null : toMin(buf[0].at) - lastEnd));
   return out;

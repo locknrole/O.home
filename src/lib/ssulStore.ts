@@ -6,7 +6,9 @@
 //   ssul_imports  업로드 기록 — 상대별 마지막 대화 시각. 다음 업로드는 그 이후만 분석한다
 //
 // 날짜는 전부 **채팅 시각**('YYYY-MM-DDTHH:mm', 기기 시간 그대로)이다. 업로드한 날이 아니다.
+import { useEffect, useState } from 'react';
 import { backend, isServerMode } from './backend';
+import { getSetting, setSetting, onSettingChange } from './settingStore';
 import { syncList } from './db';
 import { currentUserId } from './currentUser';
 import type { Visibility } from './charStore';
@@ -141,4 +143,53 @@ export function splitAuKey(key: string): { relId?: string; auId?: string } {
   if (!key) return { relId: undefined, auId: undefined };
   const [relId, auId] = key.split(':');
   return { relId, auId: auId && auId !== 'base' ? auId : undefined };
+}
+
+/* ---------- 이름·키워드 사전 — 업로드할 때마다 자동 적용 ----------
+   names   대화 속 이름 바꾸기 (예: 카톡 닉네임 「승리자」 → 「바야」)
+   alias   비슷한 키워드 통일 (예: 가정상황 → IF, 업어주기 → 업기)
+   blocked 지운 키워드 — 판별이 다시 붙여도 빼 버린다
+   사이트 설정(관리자만 쓰기)에 둔다 — 키워드는 어차피 목록에 공개로 보이는 값이다 */
+export const SSUL_DICT_KEY = 'ohome.ssuldict.v1';
+export interface SsulDict { names: Record<string, string>; alias: Record<string, string>; blocked: string[] }
+export const EMPTY_DICT: SsulDict = { names: {}, alias: {}, blocked: [] };
+
+const tagKey = (t: string) => t.trim().replace(/^#/, '').toLowerCase();
+
+/** 키워드 한 개 → 통일된 이름 (지운 키워드면 null). 별칭이 꼬리를 물면 끝까지 따라간다 */
+export function canonTag(t: string, d: SsulDict): string | null {
+  let cur = t.trim().replace(/^#/, '');
+  const alias = new Map(Object.entries(d.alias).map(([k, v]) => [tagKey(k), v]));
+  for (let hop = 0; hop < 10; hop++) {
+    const next = alias.get(tagKey(cur));
+    if (!next || tagKey(next) === tagKey(cur)) break;
+    cur = next;
+  }
+  if (!cur || d.blocked.some(b => tagKey(b) === tagKey(cur))) return null;
+  return cur;
+}
+
+/** 키워드 목록 정리 — 통일·삭제 반영 + 중복 제거 */
+export function normTags(tags: string[], d: SsulDict): string[] {
+  const out: string[] = [];
+  for (const t of tags) {
+    const c = canonTag(t, d);
+    if (c && !out.some(o => tagKey(o) === tagKey(c))) out.push(c);
+  }
+  return out;
+}
+
+/** 이름 바꾸기 적용 */
+export const renameMsgs = <M extends { sender: string }>(msgs: M[], names: Record<string, string>): M[] =>
+  msgs.map(m => (names[m.sender]?.trim() ? { ...m, sender: names[m.sender].trim() } : m));
+
+/** 사전 읽기·저장 — 다른 탭·화면에서 바꿔도 따라간다 */
+export function useSsulDict(): [SsulDict, (d: SsulDict) => void] {
+  const read = () => ({ ...EMPTY_DICT, ...getSetting<Partial<SsulDict>>(SSUL_DICT_KEY, EMPTY_DICT) });
+  const [d, setD] = useState<SsulDict>(EMPTY_DICT);
+  useEffect(() => {
+    setD(read());
+    return onSettingChange(k => { if (k === SSUL_DICT_KEY) setD(read()); });
+  }, []);
+  return [d, (next: SsulDict) => { setD(next); setSetting(SSUL_DICT_KEY, next); }];
 }

@@ -8,7 +8,7 @@
 // 키를 가진 서버를 아무나 쓰지 못하게, 호출한 사람이 **이 홈의 관리자**인지 확인한다.
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { serverSideConfig } from '@/lib/siteMeta';
+import { verifyAdmin } from '@/lib/serverAuth';
 import type { AnalyzeRequest, AnalyzeResult, AnalyzeResponse } from '@/lib/kakao/analyze';
 
 export const runtime = 'nodejs';
@@ -17,54 +17,37 @@ export const maxDuration = 300;
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
-/** 호출한 사람이 관리자인지 — 토큰을 각 서비스의 공개 API로 확인한다 (관리자 키 없이) */
-async function verifyAdmin(token: string): Promise<boolean> {
-  const cfg = await serverSideConfig();
-  if (!cfg) return process.env.NODE_ENV === 'development';   // 브라우저 저장 모드 — 개발 중에만
-  if (!token) return false;
-  try {
-    if (cfg.kind === 'supabase') {
-      const r = await fetch(`${cfg.url}/rest/v1/rpc/is_admin`, {
-        method: 'POST', cache: 'no-store',
-        headers: { Authorization: `Bearer ${token}`, apikey: cfg.anonKey, 'Content-Type': 'application/json' },
-        body: '{}',
-      });
-      return r.ok && (await r.json()) === true;
-    }
-    // Firebase — 토큰으로 uid를 확인한 뒤, 공개 문서 meta/owner의 소유자·관리자 목록과 맞춘다
-    const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(cfg.apiKey)}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: token }), cache: 'no-store',
-    });
-    if (!r.ok) return false;
-    const uid = ((await r.json()) as { users?: { localId?: string }[] }).users?.[0]?.localId;
-    if (!uid) return false;
-    const db = encodeURIComponent(cfg.databaseId?.trim() || '(default)');
-    const o = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${db}/documents/meta/owner?key=${encodeURIComponent(cfg.apiKey)}`,
-      { cache: 'no-store' },
-    );
-    if (!o.ok) return false;
-    const f = ((await o.json()) as { fields?: Record<string, { stringValue?: string; arrayValue?: { values?: { stringValue?: string }[] } }> }).fields ?? {};
-    const admins = (f.admins?.arrayValue?.values ?? []).map(v => v.stringValue);
-    return f.uid?.stringValue === uid || admins.includes(uid);
-  } catch { return false; }
-}
-
 const SYSTEM = `You sort KakaoTalk chat logs between two friends who do 자캐 (original-character) roleplay and storytelling together. Your output feeds a personal archive of their "썰" — the stories they spin about their characters.
 
 A 썰 is creative content: narrating scenes, headcanons, what-if scenarios, AU (alternate universe) setups, character backstory or relationship dynamics, dialogue written for characters, worldbuilding. Reactions to that content ("미쳤다", "ㅠㅠㅠ", "그래서 어떻게 됐어") belong to the 썰 when they sit inside it.
 잡담 (chit-chat) is everything else: daily life, meals, plans, work/school, memes, logistics, news, scheduling a session, talking about other media without spinning their own story. A session that is mostly 잡담 with one passing mention of a character is 잡담.
 
-For each session you receive (lines look like "#<index> <name>: <text>"; "나(...)" is the archive owner):
-- isSsul: true only if the session contains a real 썰.
-- from / to: the first and last message index of the 썰 part, trimming leading and trailing 잡담. Keep 잡담 that is interleaved in the middle. If isSsul is false, use the session's first and last index.
-- title: a short, evocative Korean title (≤ 20 characters) naming what happens, not "썰" or the date. Empty if not a 썰.
-- summary: one Korean sentence (≤ 80 characters). Empty if not a 썰.
+A session can hold several 썰. Start a new entry when the topic changes (a different story, scene set, AU, or pair of characters), and also whenever 잡담 comes between two story parts, so that no entry contains 잡담. If the part after the 잡담 is the same story as the part before it, mark it with continues so the two are joined into one post without the 잡담; if it is a different topic, leave continues empty so it becomes its own post. Reactions to the story itself ("미쳤다", "ㅠㅠ", "그래서?") are part of the 썰, not 잡담.
+
+For each session you receive (lines look like "#<index> <name>: <text>"; "나(...)" is the archive owner), return "ssuls": one entry per distinct 썰 in it, in order. Use an empty list when the session is only 잡담. For each entry:
+- from / to: the first and last message index of that 썰, with no 잡담 inside it. Entries must not overlap.
+- title: a short, evocative Korean title (≤ 20 characters) naming what happens, not "썰" or the date.
+- summary: one Korean sentence (≤ 80 characters).
 - au: the key of the AU option it belongs to, chosen only when the characters or setting clearly match; otherwise "". Do not invent keys.
-- tags: 2–5 short Korean keywords (themes, tropes, situations, settings). Reuse an existing tag when one fits instead of coining a synonym. Do not repeat the AU or character names as tags. Empty if not a 썰.
-- continues: if this session clearly picks up a 썰 from an earlier session in this batch or from the "previous 썰" list (e.g. "어제 썰 이어서", the same scene continuing), give that session's id or previous 썰 id; otherwise "". Only point backwards in time.
+- tags: 2–5 short Korean keywords (themes, tropes, situations, settings). Reuse an existing tag whenever one fits instead of coining a synonym (e.g. use an existing "IF" rather than "가정상황"). Do not repeat the AU or character names as tags.
+- continues: if this 썰 is the same story as an earlier 썰 — an earlier entry of this same session (split only by 잡담), an earlier session in this batch, a "previous 썰", or a session that was cut mid-story — give that earlier 썰's id; otherwise "". The id of a 썰 in this batch is "<session id>#<its 0-based position in that session's ssuls>"; previous 썰 ids are given in their list. Only point backwards in time.
 
 Return one result per session, using the session ids exactly as given.`;
+
+const PART = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['from', 'to', 'title', 'summary', 'au', 'tags', 'continues'],
+  properties: {
+    from: { type: 'integer' },
+    to: { type: 'integer' },
+    title: { type: 'string' },
+    summary: { type: 'string' },
+    au: { type: 'string' },
+    tags: { type: 'array', items: { type: 'string' } },
+    continues: { type: 'string' },
+  },
+} as const;
 
 const SCHEMA = {
   type: 'object',
@@ -76,18 +59,8 @@ const SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['id', 'isSsul', 'from', 'to', 'title', 'summary', 'au', 'tags', 'continues'],
-        properties: {
-          id: { type: 'string' },
-          isSsul: { type: 'boolean' },
-          from: { type: 'integer' },
-          to: { type: 'integer' },
-          title: { type: 'string' },
-          summary: { type: 'string' },
-          au: { type: 'string' },
-          tags: { type: 'array', items: { type: 'string' } },
-          continues: { type: 'string' },
-        },
+        required: ['id', 'ssuls'],
+        properties: { id: { type: 'string' }, ssuls: { type: 'array', items: PART } },
       },
     },
   },
@@ -115,19 +88,23 @@ Sessions:
 ${sessions}`;
 }
 
-/** 키 없이 화면만 확인할 때 — 장문 비율로 대충 가른다 */
+/** 키 없이 화면만 확인할 때 — 장문 비율로 대충 가른다. 「생각났는데·생각남」으로 시작하는 줄에서 주제를 나눈다 */
 function mock(q: AnalyzeRequest): AnalyzeResult[] {
   return q.sessions.map(s => {
     const lines = s.text.split('\n').filter(l => l.startsWith('#'));
-    const idx = lines.map(l => Number(l.slice(1, l.indexOf(' '))));
-    const long = lines.filter(l => l.length > 90).length;
-    const isSsul = long >= 2;
-    return {
-      id: s.id, isSsul, from: idx[0] ?? 0, to: idx[idx.length - 1] ?? 0,
-      title: isSsul ? (lines.find(l => l.length > 90) ?? '').replace(/^#\d+ [^:]+: /, '').slice(0, 16) : '',
-      summary: '', au: '', tags: isSsul ? ['미분류'] : [],
-      continues: /이어서|계속/.test(lines[0] ?? '') && q.prev.length ? q.prev[q.prev.length - 1].id : '',
-    };
+    const idx = (l: string) => Number(l.slice(1, l.indexOf(' ')));
+    const groups: string[][] = [];
+    for (const l of lines) {
+      if (!groups.length || (/생각났는데|생각남/.test(l) && groups[groups.length - 1].length > 1)) groups.push([]);
+      groups[groups.length - 1].push(l);
+    }
+    const ssuls = groups.filter(g => g.filter(l => l.length > 90).length >= 2).map(g => ({
+      from: idx(g[0]), to: idx(g[g.length - 1]),
+      title: (g.find(l => l.length > 90) ?? '').replace(/^#\d+ [^:]+: /, '').slice(0, 16),
+      summary: '', au: '', tags: ['미분류'],
+      continues: /이어서|계속/.test(g[0]) && q.prev.length ? q.prev[q.prev.length - 1].id : '',
+    }));
+    return { id: s.id, ssuls };
   });
 }
 

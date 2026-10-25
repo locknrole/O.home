@@ -15,11 +15,12 @@ import { Relation, REL_SEED, Character, CHAR_SEED, Visibility } from '@/lib/char
 import {
   Ssul, SSUL_KEY, SSUL_SEED, SsulImport, SSUL_IMP_KEY, SSUL_IMP_SEED, SsulBody, SsulMsg,
   lastImportedAt, fmtDay, fmtRange, auChoices, splitAuKey, auKeyOf, fetchBody, saveBodies, storedVis,
+  useSsulDict, normTags, renameMsgs, type SsulDict,
 } from '@/lib/ssulStore';
 import { parseKakao, type KakaoMsg, type ParseResult } from '@/lib/kakao/parse';
 import { splitSessions, type Session } from '@/lib/kakao/segment';
 import {
-  sessionText, isTrivial, batchSessions, buildDrafts, msgLine,
+  sessionText, isTrivial, batchSessions, buildDrafts, msgLine, partKey, daySpan,
   type AnalyzeRequest, type AnalyzeResponse, type AnalyzeResult, type Draft, type PrevSsul,
 } from '@/lib/kakao/analyze';
 import { decodeLogText } from '@/lib/galleryStore';
@@ -28,6 +29,7 @@ import { PageTitle } from '@/components/ui/PageText';
 import { FileDrop } from '@/components/ui/FileDrop';
 import { useToast } from '@/components/ui/Toast';
 import { ChatView } from '@/components/ssul/ChatView';
+import { SsulManage } from '@/components/ssul/SsulManage';
 
 const ME_KEY = 'ohome.ssul.me';
 const VIS_OPTIONS = [
@@ -85,6 +87,8 @@ export default function SsulUploadPage() {
   const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
   const [chars] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
   const aus = useMemo(() => auChoices(rels, chars), [rels, chars]);
+  /** 이름·키워드 사전 — 업로드할 때 자동 적용, 아래 「썰 관리」에서 고친다 */
+  const [dict, setDict] = useSsulDict();
   const auOpts = useMemo(() => [{ value: '', label: 'AU 없음' }, ...aus.map(a => ({ value: a.key, label: a.label }))], [aus]);
 
   const [fileName, setFileName] = useState('');
@@ -177,13 +181,14 @@ export default function SsulUploadPage() {
         // 앞 묶음에서 이미 나온 썰 중 이 묶음보다 앞선 것 — 묶음 경계를 넘는 이어짐 판단용
         const firstFrom = sessions.find(s => s.id === batch[0].id)!.from;
         const earlier = [...resultsRef.current.values()]
-          .filter(r => r.isSsul && sessions.find(s => s.id === r.id)!.from < firstFrom)
-          .sort((a, b) => sessions.find(s => s.id === a.id)!.from - sessions.find(s => s.id === b.id)!.from)
+          .flatMap(r => r.ssuls.map((p, k) => ({ ...p, key: partKey(r.id, k) })))
+          .filter(p => p.to < firstFrom)
+          .sort((a, b) => a.from - b.from)
           .slice(-3)
-          .map(r => {
-            const s = sessions.find(x => x.id === r.id)!;
-            return { id: r.id, title: r.title, au: r.au, end: s.end, tail: fresh.slice(Math.max(s.from, r.to - 2), r.to + 1).map(m => msgLine(m, me)).join(' / ') };
-          });
+          .map(p => ({
+            id: p.key, title: p.title, au: p.au, end: fresh[p.to]?.at ?? '',
+            tail: fresh.slice(Math.max(p.from, p.to - 2), p.to + 1).map(m => msgLine(m, me)).join(' / '),
+          }));
         const body: AnalyzeRequest = {
           me, partner, sessions: batch, tags, prev: [...base, ...earlier].slice(-4),
           aus: aus.map(a => ({ key: a.key, label: a.label, chars: a.chars })),
@@ -197,7 +202,7 @@ export default function SsulUploadPage() {
           if (!res.ok || j.error) { failed = j.error || `HTTP ${res.status}`; return; }
           j.results.forEach(r => resultsRef.current.set(r.id, r));
           // 모델이 빠뜨린 세션은 잡담으로 (다시 보내지 않게)
-          batch.forEach(it => { if (!resultsRef.current.has(it.id)) resultsRef.current.set(it.id, { id: it.id, isSsul: false, from: 0, to: 0, title: '', summary: '', au: '', tags: [], continues: '' }); });
+          batch.forEach(it => { if (!resultsRef.current.has(it.id)) resultsRef.current.set(it.id, { id: it.id, ssuls: [] }); });
           setProgress(p => ({ ...p, done: p.done + batch.length }));
         } catch (e) {
           failed = e instanceof Error ? e.message : String(e);
@@ -212,7 +217,7 @@ export default function SsulUploadPage() {
       return;
     }
     const drafts = buildDrafts(fresh, sessions, [...resultsRef.current.values()], new Set(base.map(p => p.id)));
-    setRows(drafts.map(d => ({ ...d, include: true, visibility: defVis, open: false, tagText: d.tags.join(', ') })));
+    setRows(drafts.map(d => ({ ...d, include: true, visibility: defVis, open: false, tagText: normTags(d.tags, dict).join(', ') })));
     setPhase('review');
   }
 
@@ -241,8 +246,8 @@ export default function SsulUploadPage() {
       const newBodies: SsulBody[] = [];
       let listNext = [...ssuls];
       for (const r of picked) {
-        const msgs = await withPhotos(r.msgs);
-        const tags = [...new Set(r.tagText.split(',').map(t => t.trim()).filter(Boolean))];
+        const msgs = renameMsgs(await withPhotos(r.msgs), dict.names);
+        const tags = normTags(r.tagText.split(','), dict);
         const { relId, auId } = splitAuKey(r.au);
         const host = r.appendTo ? listNext.find(s => s.id === r.appendTo) : undefined;
         if (host) {
@@ -258,7 +263,7 @@ export default function SsulUploadPage() {
         const password = pw.trim() || undefined;
         const vis = storedVis(r.visibility, password);
         newItems.push({
-          id, title: r.title.trim() || '제목 없음', summary: r.summary, partner, me,
+          id, title: r.title.trim() || '제목 없음', summary: r.summary, partner, me: dict.names[me]?.trim() || me,
           start: msgs[0].at, end: msgs[msgs.length - 1].at, count: msgs.length,
           relId, auId, tags, visibility: vis, ...(password ? { password } : null), createdAt: now,
         });
@@ -328,6 +333,9 @@ export default function SsulUploadPage() {
             {' '}세션 {sessions.length.toLocaleString()}개 중 글이 거의 없는 {sessions.length - candidates.length}개는 바로 잡담으로 처리하고,
             {' '}<b>{candidates.length}개</b>(약 {Math.round(sendChars).toLocaleString()}자)를 판별에 보냅니다.
           </p>
+          {senders.some(n => dict.names[n]?.trim()) && (
+            <p className="hint">이름 바꾸기 적용: {senders.filter(n => dict.names[n]?.trim()).map(n => `${n} → ${dict.names[n]}`).join(', ')} <small>(아래 「썰 관리」에서 수정)</small></p>
+          )}
           {parsed.orphans.length > 0 && <p className="hint" style={{ color: 'var(--accent)' }}>읽지 못한 줄 {parsed.orphans.length}개 — 형식이 다를 수 있습니다: {parsed.orphans[0].slice(0, 60)}</p>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
             {phase === 'analyzing' ? (
@@ -350,7 +358,7 @@ export default function SsulUploadPage() {
         <>
           <div className="ssul-up-bar">
             <b>찾은 썰 {rows.length}개</b>
-            <small>잡담 세션 {sessions.length - rows.reduce((n, r) => n + r.sessionIds.length, 0)}개 제외됨</small>
+            <small>잡담만 있던 세션 {sessions.length - new Set(rows.flatMap(r => r.sessionIds.map(k => k.slice(0, k.lastIndexOf('#'))))).size}개 제외됨</small>
             <span style={{ flex: 1 }} />
             <small>새 썰 공개범위</small>
             {pw.trim()
@@ -376,7 +384,7 @@ export default function SsulUploadPage() {
                   <div className="sd-head">
                     <KCheck label="" checked={r.include} onChange={v => patch(r.key, { include: v })} />
                     <KInput value={r.title} onChange={e => patch(r.key, { title: e.target.value })} disabled={!!host} style={{ flex: 1, fontWeight: 600 }} />
-                    <small className="sd-date">{fmtRange({ start: r.msgs[0].at, end: r.msgs[r.msgs.length - 1].at })} · {r.msgs.length}개{r.sessionIds.length > 1 ? ` · ${r.sessionIds.length}일에 걸침` : ''}</small>
+                    <small className="sd-date">{fmtRange({ start: r.msgs[0].at, end: r.msgs[r.msgs.length - 1].at })} · {r.msgs.length}개{daySpan(r.msgs) > 1 ? ` · ${daySpan(r.msgs)}일에 걸침` : r.sessionIds.length > 1 ? ' · 잡담 빼고 이어 붙임' : ''}</small>
                   </div>
                   {host ? (
                     <p className="hint" style={{ margin: '8px 0 0' }}>
@@ -396,13 +404,18 @@ export default function SsulUploadPage() {
                     </>
                   )}
                   <button className="sd-toggle" onClick={() => patch(r.key, { open: !r.open })}>{r.open ? '대화 접기 ▲' : '대화 보기 ▼'}</button>
-                  {r.open && <div className="sd-chat"><ChatView msgs={r.msgs} me={me} /></div>}
+                  {r.open && <div className="sd-chat"><ChatView msgs={renameMsgs(r.msgs, dict.names)} me={dict.names[me]?.trim() || me} /></div>}
                 </div>
               );
             })}
           </div>
         </>
       )}
+
+      <SsulManage ssuls={ssuls} setSsuls={setSsuls} imps={imps} setImps={setImps} dict={dict} setDict={setDict}
+        draftTags={rows.filter(r => r.include && !r.appendTo).flatMap(r => r.tagText.split(',').map(t => t.trim()).filter(Boolean))}
+        onDict={(nd: SsulDict) => setRows(rs => rs.map(r => ({ ...r, tagText: normTags(r.tagText.split(','), nd).join(', ') })))}
+        knownNames={[...new Set([...senders, ...ssuls.flatMap(x => [x.me ?? '', x.partner])].filter(Boolean))]} />
     </section>
   );
 }
