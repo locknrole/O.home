@@ -37,6 +37,7 @@ export const RESET_CONTENT: ResetGroup[] = [
   { key: 'road', label: '로드뷰', keys: ['ohome.road.v1', 'ohome.roadnext.v1'] },
   // 본문은 목록과 분리 저장이라(v2.0) 같이 지워야 로그만 지워지고 본문이 유령처럼 남지 않는다
   { key: 'trpg', label: 'TRPG 로그', keys: ['ohome.trpg.v1', 'ohome.trpgbody.v1'] },
+  { key: 'ssul', label: '썰 백업', keys: ['ohome.ssul.v1', 'ohome.ssulbody.v1', 'ohome.ssulimp.v1'] },
   { key: 'tchars', label: 'TRPG 캐릭터', keys: ['ohome.tchars.v1'] },
   { key: 'dotori', label: '도토리', keys: ['ohome.dotori.v1'] },
   { key: 'playlog', label: '플레이기록', keys: ['ohome.playlog.v1'] },

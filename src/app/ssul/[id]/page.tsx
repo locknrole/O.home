@@ -1,0 +1,182 @@
+'use client';
+// 썰 상세 — 카톡 대화 그대로. 관리자는 편집 모드에서 메시지 수정·삭제, 제목·AU·태그·공개범위를 고친다.
+// 본문은 이 썰 하나만 받아 온다(fetchBody) — 목록 화면이 2년치 대화를 통째로 받지 않게.
+import React, { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
+import { useLocalList } from '@/lib/postStore';
+import { Relation, REL_SEED, Character, CHAR_SEED, Visibility, relPath } from '@/lib/charStore';
+import {
+  Ssul, SSUL_KEY, SSUL_SEED, SsulBody, SsulMsg, fmtRange, auChoices, auKeyOf, splitAuKey, fetchBody, saveBodies,
+} from '@/lib/ssulStore';
+import { KInput, KSelect } from '@/components/ui/Kit';
+import { PageTitle } from '@/components/ui/PageText';
+import { useConfirmDelete } from '@/components/ui/Modal';
+import { useToast } from '@/components/ui/Toast';
+import { ChatView } from '@/components/ssul/ChatView';
+
+const VIS_OPTIONS = [
+  { value: 'public', label: '전체공개' },
+  { value: 'member', label: '멤버공개' },
+  { value: 'private', label: '나만보기' },
+];
+
+interface EditState { title: string; summary: string; au: string; tags: string[]; visibility: Visibility; msgs: SsulMsg[] }
+
+export default function SsulDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const toast = useToast();
+  const { isAdmin } = useAuth();
+  const del = useConfirmDelete();
+  const [ssuls, setSsuls, loaded] = useLocalList<Ssul>(SSUL_KEY, SSUL_SEED);
+  const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
+  const [chars] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
+  const aus = useMemo(() => auChoices(rels, chars), [rels, chars]);
+  const s = ssuls.find(x => x.id === id);
+
+  const [body, setBody] = useState<SsulBody | null | undefined>(undefined);
+  const [ed, setEd] = useState<EditState | null>(null);
+  const [tagIn, setTagIn] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setBody(undefined);
+    fetchBody(id).then(b => { if (alive) setBody(b); }).catch(() => { if (alive) setBody(null); });
+    return () => { alive = false; };
+  }, [id]);
+
+  // 앞뒤 썰 (채팅 날짜 순)
+  const sorted = useMemo(() => [...ssuls].sort((a, b) => a.start.localeCompare(b.start)), [ssuls]);
+  const at = sorted.findIndex(x => x.id === id);
+  const prev = at > 0 ? sorted[at - 1] : undefined;
+  const next = at >= 0 && at < sorted.length - 1 ? sorted[at + 1] : undefined;
+
+  if (!loaded) return <section className="page" />;
+  if (!s) {
+    return (
+      <section className="page">
+        <div className="page-head"><PageTitle>SSUL</PageTitle><p>썰을 찾을 수 없습니다 — 지워졌거나 볼 수 있는 권한이 없습니다</p></div>
+        <button className="btn btn-ghost" onClick={() => router.push('/ssul')}>목록으로</button>
+      </section>
+    );
+  }
+
+  const au = aus.find(a => a.key === auKeyOf(s));
+  const rel = s.relId ? rels.find(r => r.id === s.relId) : undefined;
+
+  const startEdit = () => {
+    if (!body) return;
+    setEd({ title: s.title, summary: s.summary ?? '', au: auKeyOf(s), tags: [...s.tags], visibility: s.visibility, msgs: body.msgs.map(m => ({ ...m })) });
+  };
+
+  async function save() {
+    if (!ed || !s || !body) return;
+    if (!ed.msgs.length) { toast('메시지가 하나도 없으면 저장할 수 없습니다 — 썰 자체를 삭제해 주세요'); return; }
+    setSaving(true);
+    try {
+      const nextBody: SsulBody = { id: s.id, msgs: ed.msgs, visibility: ed.visibility };
+      await saveBodies([body], [nextBody]);
+      const { relId, auId } = splitAuKey(ed.au);
+      const upd: Ssul = {
+        ...s, title: ed.title.trim() || s.title, summary: ed.summary.trim() || undefined, relId, auId,
+        tags: ed.tags, visibility: ed.visibility,
+        start: ed.msgs[0].at, end: ed.msgs[ed.msgs.length - 1].at, count: ed.msgs.length,
+      };
+      setSsuls(ssuls.map(x => (x.id === s.id ? upd : x)));
+      setBody(nextBody);
+      setEd(null);
+      toast('저장했습니다');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '저장하지 못했습니다');
+    } finally { setSaving(false); }
+  }
+
+  function remove() {
+    del.ask('이 썰을 삭제할까요?', async () => {
+      try {
+        if (body) await saveBodies([body], []);
+        setSsuls(ssuls.filter(x => x.id !== s!.id));
+        router.push('/ssul');
+      } catch (e) { toast(e instanceof Error ? e.message : '삭제하지 못했습니다'); }
+    }, '대화 본문까지 지워집니다. 같은 기간을 다시 올려도 업로드 기록 때문에 건너뛰니, 다시 올리려면 업로드 기록도 함께 고려해 주세요.');
+  }
+
+  const addTag = () => {
+    const t = tagIn.trim().replace(/^#/, '');
+    if (t && ed && !ed.tags.includes(t)) setEd({ ...ed, tags: [...ed.tags, t] });
+    setTagIn('');
+  };
+
+  const view = ed ?? { title: s.title, summary: s.summary ?? '', tags: s.tags };
+
+  return (
+    <section className="page ssul-detail">
+      <div className="page-head">
+        <PageTitle>SSUL</PageTitle>
+        <p>{fmtRange(s)} · {s.partner} · {s.count}개 메시지</p>
+        <div className="head-actions">
+          {isAdmin && !ed && <button className="btn btn-ghost" disabled={!body} onClick={startEdit}>편집</button>}
+          {isAdmin && ed && (
+            <>
+              <button className="btn btn-ghost" onClick={remove}>삭제</button>
+              <button className="btn btn-ghost" onClick={() => setEd(null)}>취소</button>
+              <button className="btn btn-dark" disabled={saving} onClick={save}>{saving ? '저장 중…' : '저장'}</button>
+            </>
+          )}
+          {!ed && <button className="btn btn-ghost" onClick={() => router.push('/ssul')}>목록</button>}
+        </div>
+      </div>
+
+      <div className="panel ssul-head">
+        {ed ? (
+          <div style={{ display: 'grid', gap: 9 }}>
+            <KInput value={ed.title} onChange={e => setEd({ ...ed, title: e.target.value })} placeholder="제목" style={{ fontWeight: 600, fontSize: 16 }} />
+            <KInput value={ed.summary} onChange={e => setEd({ ...ed, summary: e.target.value })} placeholder="한 줄 요약 (선택)" />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <KSelect minWidth={190} value={ed.au} onChange={v => setEd({ ...ed, au: v })}
+                options={[{ value: '', label: 'AU 없음' }, ...aus.map(a => ({ value: a.key, label: a.label }))]} />
+              <KSelect minWidth={120} value={ed.visibility} onChange={v => setEd({ ...ed, visibility: v as Visibility })} options={VIS_OPTIONS} />
+            </div>
+            <div className="si-tags">
+              {ed.tags.map(t => (
+                <span key={t} className="pill">#{t} <a className="ssul-x" onClick={() => setEd({ ...ed, tags: ed.tags.filter(x => x !== t) })}>✕</a></span>
+              ))}
+              <KInput value={tagIn} onChange={e => setTagIn(e.target.value)} placeholder="태그 추가 (Enter)" style={{ maxWidth: 180 }}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); addTag(); } }} onBlur={addTag} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <h2 className="ssul-title">{view.title}</h2>
+            {view.summary && <p className="si-sum">{view.summary}</p>}
+            <div className="si-tags">
+              {au && rel && <span className="pill dark" onClick={() => router.push(`${relPath(rel)}${s.auId ? `?au=${s.auId}` : ''}`)}>{au.label}</span>}
+              {s.visibility !== 'public' && <span className="pill">{s.visibility === 'member' ? '멤버공개' : '나만보기'}</span>}
+              {view.tags.map(t => <span key={t} className="pill">#{t}</span>)}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="panel ssul-body">
+        {body === undefined && <p className="hint" style={{ textAlign: 'center' }}>불러오는 중…</p>}
+        {body === null && <p className="hint" style={{ textAlign: 'center' }}>대화 본문을 불러오지 못했습니다</p>}
+        {body && (
+          <ChatView msgs={ed ? ed.msgs : body.msgs} me={s.me} editing={!!ed}
+            onEdit={(k, text) => ed && setEd({ ...ed, msgs: ed.msgs.map((m, j) => (j === k ? { ...m, text, edited: true } : m)) })}
+            onDelete={k => ed && setEd({ ...ed, msgs: ed.msgs.filter((_, j) => j !== k) })} />
+        )}
+      </div>
+
+      {!ed && (prev || next) && (
+        <div className="ssul-nav">
+          {prev ? <a onClick={() => router.push(`/ssul/${prev.id}`)}>‹ {prev.title}</a> : <span />}
+          {next ? <a onClick={() => router.push(`/ssul/${next.id}`)}>{next.title} ›</a> : <span />}
+        </div>
+      )}
+      {del.element}
+    </section>
+  );
+}

@@ -36,6 +36,8 @@ const AREA: Record<string, { kind?: SectionKind; href?: string; board?: boolean 
   relations: { href: '/rels' },
   trpg_chars: { href: '/tchars' },
   applicants: { href: '/comm-apply' },
+  ssul: { href: '/ssul' },
+  ssul_bodies: { href: '/ssul' },      // 본문도 같은 메뉴 기준 — 목록만 막으면 본문이 그대로 남는다
 };
 
 /** 이 항목이 걸린 메뉴 주소 — 어디에도 안 걸리는 컬렉션(댓글·답변 등)은 null */
