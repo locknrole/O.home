@@ -14,7 +14,7 @@ import { Relation, REL_SEED, Character, CHAR_SEED, Visibility } from '@/lib/char
 import {
   Ssul, SSUL_KEY, SSUL_SEED, SsulImport, SSUL_IMP_KEY, SSUL_IMP_SEED, SsulBody, SsulMsg,
   lastImportedAt, fmtDay, fmtRange, auChoices, splitAuKey, auKeyOf, fetchBody, saveBodies,
-  useSsulDict, normTags, renameMsgs, ssulErrText, VIS_OPTIONS, postSsulApi, runPool, type SsulDict,
+  useSsulDict, normTags, renameMsgs, ssulErrText, VIS_OPTIONS, postSsulApi, runPool, withYm, useSyncSsulIndex, type SsulDict,
 } from '@/lib/ssulStore';
 import { parseKakao, type KakaoMsg, type ParseResult } from '@/lib/kakao/parse';
 import { splitSessions, type Session } from '@/lib/kakao/segment';
@@ -69,13 +69,15 @@ export default function SsulUploadPage() {
   const router = useRouter();
   const toast = useToast();
   const { isAdmin, ready } = useAuth();
-  const [ssuls, setSsuls] = useLocalList<Ssul>(SSUL_KEY, SSUL_SEED);
+  const [ssuls, setSsuls, ssulsLoaded] = useLocalList<Ssul>(SSUL_KEY, SSUL_SEED);
   const [imps, setImps] = useLocalList<SsulImport>(SSUL_IMP_KEY, SSUL_IMP_SEED);
   const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
   const [chars] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
   const aus = useMemo(() => auChoices(rels, chars), [rels, chars]);
   /** 이름·키워드 사전 — 업로드할 때 자동 적용, 아래 「썰 관리」에서 고친다 */
   const [dict, setDict] = useSsulDict();
+  // 썰 전체를 들고 있는 관리자 화면 — 월(ym)·월 목록을 맞춰 둔다 (목록 페이지가 전체를 읽지 않게)
+  useSyncSsulIndex(ssuls, setSsuls, ssulsLoaded && isAdmin);
   const auOpts = useMemo(() => [{ value: '', label: 'AU 없음' }, ...aus.map(a => ({ value: a.key, label: a.label }))], [aus]);
 
   const [fileName, setFileName] = useState('');
@@ -240,7 +242,7 @@ export default function SsulUploadPage() {
       }
       // 본문 먼저 — 목록이 먼저 뜨면 잠깐 「본문 없음」 썰이 보인다
       if (newBodies.length) await saveBodies([], newBodies);
-      setSsuls([...listNext, ...newItems]);
+      setSsuls([...listNext, ...newItems].map(withYm));
       if (fresh.length) {
         setImps([...imps, {
           id: newId(), partner, file: fileName, from: fresh[0].at, to: fresh[fresh.length - 1].at,

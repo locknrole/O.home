@@ -2039,3 +2039,9 @@ html[data-scheme="dark"] .si-date{color:color-mix(in srgb,var(--ink) 74%,var(--p
 .sm-retag-tags .old{color:var(--faint);text-decoration:line-through}
 .sm-retag-tags > span:not(.pill):not(.old){color:var(--faint)}
 .sm-retag-tags .pill{padding:2px 8px}
+
+/* 썰 목록 오른쪽 패널 — 스크롤해도 따라온다 (패널이 화면보다 길면 패널 안에서 스크롤) */
+.ssul-side{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto}
+@media(max-width:620px){.ssul-side{position:static;max-height:none}}
+.ssul-more{display:inline-block;margin-top:8px;font-size:calc(11px*var(--fs,1));color:var(--faint);text-decoration:underline;cursor:var(--cur-pointer,pointer)}
+.ssul-more:hover{color:var(--ink)}

@@ -155,6 +155,15 @@ export async function createSupabaseBackend(
       });
     },
 
+    async fetchListWhere<T extends ListItem>(coll: string, field: string, value: string): Promise<T[]> {
+      const { data, error } = await sb.from(coll).select('id, data, sort').eq(`data->>${field}`, value).order('sort', { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map(r => {
+        const row = r as { id: string; data: Record<string, unknown> };
+        return { ...(row.data ?? {}), id: row.id } as T;
+      });
+    },
+
     async fetchOne<T extends ListItem>(coll: string, id: string): Promise<T | null> {
       const { data, error } = await sb.from(coll).select('id, data').eq('id', id).maybeSingle();
       if (error || !data) return null;

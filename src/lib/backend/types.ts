@@ -65,6 +65,9 @@ export interface Backend {
   fetchList<T extends ListItem>(coll: string): Promise<T[]>;
   /** 문서 하나만 — 목록 전체를 받기엔 너무 큰 본문(썰 대화 등)을 열 때. 없거나 권한이 없으면 null */
   fetchOne<T extends ListItem>(coll: string, id: string): Promise<T | null>;
+  /** 항목 필드 하나가 값과 같은 것만 (data.<field> == value) — 목록 전체를 읽지 않고 일부만 (썰 월별 보기 등).
+   *  공개범위 규칙은 fetchList와 같다. 서버가 질의를 거부하면(색인 등) 예외를 던진다 — 부르는 쪽이 전체 읽기로 대신한다 */
+  fetchListWhere<T extends ListItem>(coll: string, field: string, value: string): Promise<T[]>;
   syncList<T extends ListItem>(coll: string, prev: T[], next: T[], uid: string | null): Promise<void>;
   /** 이미 저장된 행의 공개범위만 다시 계산해 덮어쓴다 (v2.0) — 메뉴를 비공개로 바꾼 뒤
    *  「글에도 적용」을 누르면 돈다. 내용(data)·순서(sort)는 건드리지 않는다. */

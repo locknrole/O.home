@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
 import { Relation, REL_SEED, Character, CHAR_SEED, Visibility, relPath } from '@/lib/charStore';
 import {
-  Ssul, SSUL_KEY, SSUL_SEED, SsulBody, SsulMsg, fmtRange, auChoices, auKeyOf, splitAuKey, fetchBody, saveBodies, useSsulFavs, VIS_OPTIONS,
+  Ssul, SSUL_KEY, SSUL_SEED, SsulBody, SsulMsg, fmtRange, auChoices, auKeyOf, splitAuKey, fetchBody, saveBodies, useSsulFavs, VIS_OPTIONS, withYm, useSyncSsulIndex,
 } from '@/lib/ssulStore';
 import { KInput, KSelect } from '@/components/ui/Kit';
 import { PageTitle } from '@/components/ui/PageText';
@@ -26,6 +26,8 @@ export default function SsulDetailPage() {
   const fav = useSsulFavs(user?.id);
   const del = useConfirmDelete();
   const [ssuls, setSsuls, loaded] = useLocalList<Ssul>(SSUL_KEY, SSUL_SEED);
+  // 편집·삭제로 시작일이 바뀌면 월(ym)·월 목록도 맞춘다 (관리자만 쓸 수 있다)
+  useSyncSsulIndex(ssuls, setSsuls, loaded && isAdmin);
   const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
   const [chars] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
   const aus = useMemo(() => auChoices(rels, chars), [rels, chars]);
@@ -79,11 +81,11 @@ export default function SsulDetailPage() {
       const nextBody: SsulBody = { id: s.id, msgs: ed.msgs, visibility: vis };
       await saveBodies([body], [nextBody]);
       const { relId, auId } = splitAuKey(ed.au);
-      const upd: Ssul = {
+      const upd: Ssul = withYm({
         ...s, title: ed.title.trim() || s.title, summary: ed.summary.trim() || undefined, relId, auId,
         tags: ed.tags, visibility: vis, password: undefined,
         start: ed.msgs[0].at, end: ed.msgs[ed.msgs.length - 1].at, count: ed.msgs.length,
-      };
+      });
       setSsuls(ssuls.map(x => (x.id === s.id ? upd : x)));
       setBody(nextBody);
       setEd(null);
