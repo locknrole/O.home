@@ -14,8 +14,8 @@ import { putBlob } from '@/lib/blobStore';
 import { Relation, REL_SEED, Character, CHAR_SEED, Visibility } from '@/lib/charStore';
 import {
   Ssul, SSUL_KEY, SSUL_SEED, SsulImport, SSUL_IMP_KEY, SSUL_IMP_SEED, SsulBody, SsulMsg,
-  lastImportedAt, fmtDay, fmtRange, auChoices, splitAuKey, auKeyOf, fetchBody, saveBodies, storedVis,
-  useSsulDict, normTags, renameMsgs, type SsulDict,
+  lastImportedAt, fmtDay, fmtRange, auChoices, splitAuKey, auKeyOf, fetchBody, saveBodies,
+  useSsulDict, normTags, renameMsgs, ssulErrText, type SsulDict,
 } from '@/lib/ssulStore';
 import { parseKakao, type KakaoMsg, type ParseResult } from '@/lib/kakao/parse';
 import { splitSessions, type Session } from '@/lib/kakao/segment';
@@ -37,14 +37,6 @@ const VIS_OPTIONS = [
   { value: 'member', label: '멤버공개' },
   { value: 'private', label: '나만보기' },
 ];
-const ERR_TEXT: Record<string, string> = {
-  'no-key': '서버에 ANTHROPIC_API_KEY가 없습니다 — Vercel 환경변수에 등록하고 다시 배포해 주세요',
-  'bad-key': 'ANTHROPIC_API_KEY가 올바르지 않습니다',
-  'unauthorized': '관리자 로그인이 필요합니다',
-  'rate-limit': '요청이 몰려 잠시 막혔습니다 — 조금 뒤 [이어서 분석]을 눌러 주세요',
-  'refusal': '이 묶음은 모델이 처리를 거절했습니다',
-  'too-long': '응답이 너무 길어졌습니다 — 다시 시도해 주세요',
-};
 const CONCURRENCY = 3;
 
 interface Row extends Draft {
@@ -98,8 +90,6 @@ export default function SsulUploadPage() {
   const [partner, setPartner] = useState('');
   const [gapMin, setGapMin] = useState('180');
   const [defVis, setDefVis] = useState<Visibility>('public');
-  /** 이번 업로드의 새 썰 전체에 거는 열람 비밀번호 (선택) */
-  const [pw, setPw] = useState('');
 
   const [phase, setPhase] = useState<'idle' | 'analyzing' | 'review' | 'saving'>('idle');
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -212,7 +202,7 @@ export default function SsulUploadPage() {
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, batches.length) }, worker));
 
     if (failed || stopRef.current) {
-      setError(failed ? (ERR_TEXT[failed] ?? `분석 실패: ${failed}`) : '분석을 멈췄습니다');
+      setError(failed ? ssulErrText(failed) : '분석을 멈췄습니다');
       setPhase('idle');
       return;
     }
@@ -260,12 +250,11 @@ export default function SsulUploadPage() {
           continue;
         }
         const id = newId();
-        const password = pw.trim() || undefined;
-        const vis = storedVis(r.visibility, password);
+        const vis = r.visibility;
         newItems.push({
           id, title: r.title.trim() || '제목 없음', summary: r.summary, partner, me: dict.names[me]?.trim() || me,
           start: msgs[0].at, end: msgs[msgs.length - 1].at, count: msgs.length,
-          relId, auId, tags, visibility: vis, ...(password ? { password } : null), createdAt: now,
+          relId, auId, tags, visibility: vis, createdAt: now,
         });
         newBodies.push({ id, msgs, visibility: vis });
       }
@@ -361,20 +350,11 @@ export default function SsulUploadPage() {
             <small>잡담만 있던 세션 {sessions.length - new Set(rows.flatMap(r => r.sessionIds.map(k => k.slice(0, k.lastIndexOf('#'))))).size}개 제외됨</small>
             <span style={{ flex: 1 }} />
             <small>새 썰 공개범위</small>
-            {pw.trim()
-              ? <small className="pill">🔒 비밀번호로 열람</small>
-              : <KSelect minWidth={110} value={defVis} onChange={v => { setDefVis(v as Visibility); setRows(rs => rs.map(r => ({ ...r, visibility: v as Visibility }))); }} options={VIS_OPTIONS} />}
-            <KInput type="password" autoComplete="new-password" placeholder="열람 비밀번호 (일괄 · 선택)" value={pw} onChange={e => setPw(e.target.value)} style={{ maxWidth: 190 }} />
+            <KSelect minWidth={110} value={defVis} onChange={v => { setDefVis(v as Visibility); setRows(rs => rs.map(r => ({ ...r, visibility: v as Visibility }))); }} options={VIS_OPTIONS} />
             <button className="btn btn-dark" disabled={phase === 'saving' || !includedN} onClick={upload}>
               {phase === 'saving' ? '저장 중…' : `업로드 (${includedN})`}
             </button>
           </div>
-          {pw.trim() && rows.length > 0 && (
-            <p className="hint" style={{ margin: '-4px 0 12px', color: 'var(--page-desc,#c9ccd2)' }}>
-              새로 저장되는 썰 전부에 같은 비밀번호가 걸립니다 — 목록에는 제목·날짜·태그가 보이고, 열람할 때 비밀번호를 묻습니다(관리자는 바로 열림).
-              이전 썰에 이어 붙이는 것은 그 썰의 설정을 따릅니다. 화면에서만 확인하는 방식이라 완전한 차단은 아닙니다.
-            </p>
-          )}
           {rows.length === 0 && <div className="panel" style={{ textAlign: 'center', padding: 40, color: 'var(--faint)', fontSize: 13 }}>이 구간에서는 썰을 찾지 못했습니다</div>}
           <div className="ssul-drafts">
             {rows.map(r => {
@@ -397,9 +377,7 @@ export default function SsulUploadPage() {
                       <div className="sd-fields">
                         <KSelect minWidth={170} value={r.au} onChange={v => patch(r.key, { au: v })} options={auOpts} />
                         <KInput placeholder="태그 (쉼표로 구분)" value={r.tagText} onChange={e => patch(r.key, { tagText: e.target.value })} style={{ flex: 1 }} />
-                        {pw.trim()
-                          ? <span className="pill" style={{ alignSelf: 'center' }}>🔒 비밀번호</span>
-                          : <KSelect minWidth={110} value={r.visibility} onChange={v => patch(r.key, { visibility: v as Visibility })} options={VIS_OPTIONS} />}
+                        <KSelect minWidth={110} value={r.visibility} onChange={v => patch(r.key, { visibility: v as Visibility })} options={VIS_OPTIONS} />
                       </div>
                     </>
                   )}
@@ -415,7 +393,8 @@ export default function SsulUploadPage() {
       <SsulManage ssuls={ssuls} setSsuls={setSsuls} imps={imps} setImps={setImps} dict={dict} setDict={setDict}
         draftTags={rows.filter(r => r.include && !r.appendTo).flatMap(r => r.tagText.split(',').map(t => t.trim()).filter(Boolean))}
         onDict={(nd: SsulDict) => setRows(rs => rs.map(r => ({ ...r, tagText: normTags(r.tagText.split(','), nd).join(', ') })))}
-        knownNames={[...new Set([...senders, ...ssuls.flatMap(x => [x.me ?? '', x.partner])].filter(Boolean))]} />
+        knownNames={[...new Set([...senders, ...ssuls.flatMap(x => [x.me ?? '', x.partner])].filter(Boolean))]}
+        aus={aus} />
     </section>
   );
 }

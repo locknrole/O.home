@@ -1,7 +1,7 @@
 'use client';
 // 썰 관리 (업로드 화면 아래) — 이름 바꾸기 · 키워드 정리 · 전체 삭제.
 // 이름·키워드 규칙은 사전(SsulDict)에 남아 다음 업로드부터 자동 적용된다.
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { backend } from '@/lib/backend';
 import {
   Ssul, SsulImport, SsulBody, SsulDict, fetchBody, saveBodies, normTags, renameMsgs,
@@ -10,8 +10,11 @@ import { KInput, KCheck } from '@/components/ui/Kit';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import type { TagGroup, TagSuggestResponse } from '@/app/api/ssul/tags/route';
+import type { RetagItem, RetagResponse } from '@/app/api/ssul/retag/route';
+import { msgLine } from '@/lib/kakao/analyze';
+import { auKeyOf, ssulErrText, fmtDay } from '@/lib/ssulStore';
 
-export function SsulManage({ ssuls, setSsuls, imps, setImps, dict, setDict, draftTags, onDict, knownNames }: {
+export function SsulManage({ ssuls, setSsuls, imps, setImps, dict, setDict, draftTags, onDict, knownNames, aus }: {
   ssuls: Ssul[];
   setSsuls: (next: Ssul[]) => void;
   imps: SsulImport[];
@@ -24,6 +27,8 @@ export function SsulManage({ ssuls, setSsuls, imps, setImps, dict, setDict, draf
   onDict: (d: SsulDict) => void;
   /** 이름 바꾸기 후보 — 지금 파일의 화자 + 저장된 썰의 나·상대 */
   knownNames: string[];
+  /** AU 이름표 — 키워드 다시 붙일 때 판별에 같이 보낸다 */
+  aus: { key: string; label: string }[];
 }) {
   const toast = useToast();
 
@@ -129,6 +134,80 @@ export function SsulManage({ ssuls, setSsuls, imps, setImps, dict, setDict, draf
       toast(e instanceof Error ? e.message : '이름을 바꾸지 못했습니다');
     } finally { setRenaming(null); }
   }
+
+  /* ---------- 키워드 다시 붙이기 — 저장된 썰 전체를 Claude에 다시 보내 새 키워드를 받고, 전/후를 보고 골라 적용 ---------- */
+  const RETAG_BATCH = 8;          // 요청 하나에 실을 썰 수
+  const RETAG_CAP = 6_000;        // 썰 하나당 보낼 대화 글자 (넘으면 앞 2/3 · 뒤 1/3)
+  const [rt, setRt] = useState<{ phase: 'idle' | 'running' | 'review'; done: number; total: number; error: string }>({ phase: 'idle', done: 0, total: 0, error: '' });
+  const rtResults = useRef<Map<string, string[]>>(new Map());
+  const rtStop = useRef(false);
+  const [rtKeep, setRtKeep] = useState(false);
+  const [rtSel, setRtSel] = useState<Set<string>>(new Set());
+
+  const cap = (lines: string[]) => {
+    const full = lines.join('\n');
+    if (full.length <= RETAG_CAP) return full;
+    const head: string[] = [], tail: string[] = [];
+    let n = 0;
+    for (const l of lines) { if (n + l.length > RETAG_CAP * 2 / 3) break; head.push(l); n += l.length + 1; }
+    n = 0;
+    for (let k = lines.length - 1; k >= head.length; k--) { if (n + lines[k].length > RETAG_CAP / 3) break; tail.unshift(lines[k]); n += lines[k].length + 1; }
+    return [...head, `… (중간 ${lines.length - head.length - tail.length}개 생략) …`, ...tail].join('\n');
+  };
+  /** 적용할 최종 키워드 — 「기존 유지」면 기존 + 새로, 아니면 새로만. 사전 규칙(통일·삭제)도 함께 */
+  const finalTags = (s: Ssul) => {
+    const fresh = rtResults.current.get(s.id) ?? [];
+    return normTags(rtKeep ? [...s.tags, ...fresh] : fresh, dict);
+  };
+  const changed = (s: Ssul) => rtResults.current.has(s.id) && finalTags(s).join('|') !== s.tags.join('|');
+
+  async function retag() {
+    rtStop.current = false;
+    const todo = [...ssuls].sort((a, b) => a.start.localeCompare(b.start)).filter(s => !rtResults.current.has(s.id));
+    const batches: Ssul[][] = [];
+    for (let i = 0; i < todo.length; i += RETAG_BATCH) batches.push(todo.slice(i, i + RETAG_BATCH));
+    setRt({ phase: 'running', done: ssuls.length - todo.length, total: ssuls.length, error: '' });
+    const token = (await backend()?.authToken()) ?? '';
+    const tags = [...new Set(ssuls.flatMap(s => s.tags))].slice(0, 300);
+    const auLabel = (s: Ssul) => aus.find(a => a.key === auKeyOf(s))?.label ?? '';
+    let next = 0, failed = '';
+    const worker = async () => {
+      while (!failed && !rtStop.current && next < batches.length) {
+        const batch = batches[next++];
+        try {
+          const items: RetagItem[] = [];
+          for (const s of batch) {
+            const b = await fetchBody(s.id);
+            items.push({ id: s.id, title: s.title, summary: s.summary ?? '', au: auLabel(s), text: cap((b?.msgs ?? []).map(m => msgLine(m, s.me ?? ''))) });
+          }
+          const res = await fetch('/api/ssul/retag', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ items, tags }),
+          });
+          const j = await res.json() as RetagResponse;
+          if (!res.ok || j.error) { failed = j.error || `HTTP ${res.status}`; return; }
+          j.results.forEach(r => rtResults.current.set(r.id, r.tags));
+          setRt(p => ({ ...p, done: p.done + batch.length }));
+        } catch (e) { failed = e instanceof Error ? e.message : String(e); }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(3, batches.length) }, worker));
+    if (failed || rtStop.current) {
+      setRt(p => ({ ...p, phase: 'idle', error: failed ? ssulErrText(failed) : '멈췄습니다 — 다시 누르면 이어서 진행합니다' }));
+      return;
+    }
+    setRtSel(new Set(ssuls.filter(changed).map(s => s.id)));
+    setRt(p => ({ ...p, phase: 'review' }));
+  }
+  const applyRetag = () => {
+    const next = ssuls.map(s => (rtSel.has(s.id) && changed(s) ? { ...s, tags: finalTags(s) } : s));
+    const n = next.filter((s, i) => s !== ssuls[i]).length;
+    setSsuls(next);
+    toast(`썰 ${n}개의 키워드를 바꿨습니다`);
+    rtResults.current = new Map();
+    setRt({ phase: 'idle', done: 0, total: 0, error: '' });
+  };
+  const rtChanged = rt.phase === 'review' ? ssuls.filter(changed).sort((a, b) => a.start.localeCompare(b.start)) : [];
 
   /* ---------- 전체 삭제 ---------- */
   const [wipeOpen, setWipeOpen] = useState(false);
@@ -247,6 +326,65 @@ export function SsulManage({ ssuls, setSsuls, imps, setImps, dict, setDict, draf
               ))}
             </div>
           </details>
+        )}
+      </div>
+
+      {/* 키워드 다시 붙이기 */}
+      <div className="panel sm-sec">
+        <h4>키워드 다시 붙이기</h4>
+        <p className="hint" style={{ marginTop: 0 }}>
+          올린 썰 {ssuls.length}개의 대화를 다시 읽혀 새 키워드를 받습니다 (썰마다 대화 최대 {RETAG_CAP.toLocaleString()}자).
+          바로 바뀌지 않고, 전/후를 보고 고른 것만 적용됩니다. 저장된 통일·삭제 규칙도 함께 적용됩니다.
+        </p>
+        {rt.phase === 'running' ? (
+          <div className="sm-row">
+            <div className="ssul-progress"><i style={{ width: `${rt.total ? (rt.done / rt.total) * 100 : 0}%` }} /></div>
+            <small style={{ color: 'var(--faint)', whiteSpace: 'nowrap' }}>{rt.done} / {rt.total}</small>
+            <button className="btn btn-ghost" onClick={() => { rtStop.current = true; }}>멈춤</button>
+          </div>
+        ) : rt.phase === 'idle' ? (
+          <div className="sm-row">
+            <button className="btn btn-ghost" disabled={!ssuls.length} onClick={retag}>
+              {rtResults.current.size ? `이어서 진행 (${rtResults.current.size}/${ssuls.length})` : '전체 썰 키워드 다시 붙이기'}
+            </button>
+            {rt.error && <small style={{ color: 'var(--accent)' }}>{rt.error}</small>}
+          </div>
+        ) : (
+          <div className="sm-retag">
+            <div className="sm-row">
+              <b style={{ fontSize: 13 }}>바뀌는 썰 {rtChanged.length}개</b>
+              <small className="hint" style={{ margin: 0 }}>그대로 {ssuls.length - rtChanged.length}개</small>
+              <span style={{ flex: 1 }} />
+              <KCheck label={<span style={{ fontSize: 12 }}>기존 키워드 유지하고 추가만</span>} checked={rtKeep} onChange={setRtKeep} />
+            </div>
+            <div className="sm-row">
+              <a className="sm-link" onClick={() => setRtSel(new Set(rtChanged.map(s => s.id)))}>전체 선택</a>
+              <a className="sm-link" onClick={() => setRtSel(new Set())}>전체 해제</a>
+            </div>
+            <div className="sm-retag-list">
+              {rtChanged.map(s => (
+                <div key={s.id} className={`sm-retag-row ${rtSel.has(s.id) ? '' : 'off'}`}>
+                  <KCheck label="" checked={rtSel.has(s.id)} onChange={v => setRtSel(sel => { const n = new Set(sel); if (v) n.add(s.id); else n.delete(s.id); return n; })} />
+                  <div style={{ minWidth: 0 }}>
+                    <div className="sm-retag-title"><small>{fmtDay(s.start)}</small> {s.title}</div>
+                    <div className="sm-retag-tags">
+                      <span className="old">{s.tags.length ? s.tags.map(t => `#${t}`).join(' ') : '(없음)'}</span>
+                      <span>→</span>
+                      {finalTags(s).map(t => <span key={t} className={`pill ${s.tags.includes(t) ? '' : 'dark'}`}>#{t}</span>)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!rtChanged.length && <p className="hint" style={{ margin: 0 }}>바뀌는 썰이 없습니다</p>}
+            </div>
+            <div className="sm-row">
+              <button className="btn btn-dark" disabled={!rtChanged.some(s => rtSel.has(s.id))} onClick={applyRetag}>
+                선택한 {rtChanged.filter(s => rtSel.has(s.id)).length}개 적용
+              </button>
+              <button className="btn btn-ghost" onClick={() => { rtResults.current = new Map(); setRt({ phase: 'idle', done: 0, total: 0, error: '' }); }}>버리기</button>
+              <small className="hint" style={{ margin: 0 }}>진한 키워드가 새로 붙는 것입니다</small>
+            </div>
+          </div>
         )}
       </div>
 

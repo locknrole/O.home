@@ -3,7 +3,7 @@
 // 키·모델 설정은 /api/ssul/analyze와 같다 (ANTHROPIC_API_KEY · SSUL_MODEL · SSUL_MOCK).
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { verifyAdmin } from '@/lib/serverAuth';
+import { verifyAdmin, claudeError } from '@/lib/serverAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ export interface TagSuggestRequest { tags: { tag: string; count: number }[] }
 export interface TagSuggestResponse { groups: TagGroup[]; error?: string }
 
 const SYSTEM = `You tidy the keyword tags of a personal archive of Korean character-roleplay stories ("썰").
-Group tags that mean the same thing or are trivial variants of one another (synonyms, spelling or spacing variants, abbreviations, verb/noun forms — e.g. "가정상황" and "IF", "업어주기" and "업기"). Do not group tags that are merely related (e.g. "비" and "눈", "재회" and "이별").
+Group tags that mean the same thing or are trivial variants of one another (synonyms, spelling or spacing variants, abbreviations, verb/noun forms — e.g. "가정상황" and "IF", "업어주기" and "업기"). Do not group tags that are merely related (e.g. "비" and "눈", "재회" and "이별"), and never fold a specific tag into a broader one (e.g. "안드로이드" or "뱀파이어" into "IF", "학원" into "AU") — the specific tag is what people search for.
 For each group pick the canonical tag: prefer the one the archive already uses most (highest count), unless another member is clearly the more standard short form. The canonical tag must be one of the members.
 Only return groups with two or more members. Tags that have no synonym in the list are left out.`;
 
@@ -88,12 +88,7 @@ export async function POST(req: NextRequest) {
       .filter(g => g.members.length >= 2 && g.members.includes(g.canonical));
     return NextResponse.json({ groups } satisfies TagSuggestResponse, { headers: NO_STORE });
   } catch (err) {
-    const status = err instanceof Anthropic.RateLimitError ? 429
-      : err instanceof Anthropic.AuthenticationError ? 503
-        : err instanceof Anthropic.APIError ? (err.status ?? 502) : 502;
-    const error = err instanceof Anthropic.AuthenticationError ? 'bad-key'
-      : err instanceof Anthropic.RateLimitError ? 'rate-limit'
-        : err instanceof Error ? err.message : String(err);
+    const { error, status } = await claudeError(err);
     return NextResponse.json({ groups: [], error } satisfies TagSuggestResponse, { status, headers: NO_STORE });
   }
 }

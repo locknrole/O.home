@@ -34,3 +34,15 @@ export async function verifyAdmin(token: string): Promise<boolean> {
     return f.uid?.stringValue === uid || admins.includes(uid);
   } catch { return false; }
 }
+
+/** Claude API 오류 → 화면이 알아듣는 코드 + HTTP 상태. 크레딧 부족은 400으로 오므로 메시지로 구분한다 */
+export async function claudeError(err: unknown): Promise<{ error: string; status: number }> {
+  const Anthropic = (await import('@anthropic-ai/sdk')).default;
+  if (err instanceof Anthropic.AuthenticationError) return { error: 'bad-key', status: 503 };
+  if (err instanceof Anthropic.RateLimitError) return { error: 'rate-limit', status: 429 };
+  if (err instanceof Anthropic.APIError) {
+    if (/credit balance/i.test(err.message)) return { error: 'no-credit', status: 402 };
+    return { error: err.message, status: err.status ?? 502 };
+  }
+  return { error: err instanceof Error ? err.message : String(err), status: 502 };
+}

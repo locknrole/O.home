@@ -47,8 +47,8 @@ export interface Ssul {
   auId?: string;
   tags: string[];
   visibility: Visibility;
-  /** 열람 비밀번호 (TRPG 로그와 같은 방식) — 화면에서만 확인하는 것이라 완전한 차단은 아니다.
-   *  비밀번호가 있으면 목록·본문을 공개로 저장해, 권한이 없는 사람도 비밀번호만 알면 열 수 있게 한다 */
+  /** (없앤 기능) 예전 열람 비밀번호 — 화면은 더 이상 쓰지 않는다. 남아 있으면 관리자가 썰 목록을 열 때
+   *  지운다(공개 문서에 비밀번호가 평문으로 남지 않게). 열람 제한은 메뉴 공개범위로 한다 */
   password?: string;
   createdAt: string;
 }
@@ -77,9 +77,6 @@ export const SSUL_IMP_SEED: SsulImport[] = [];
 /** 이 상대와 이미 올린 마지막 채팅 시각 — 이 시각까지는 다음 업로드에서 건너뛴다 */
 export const lastImportedAt = (imps: SsulImport[], partner: string): string | null =>
   imps.filter(r => r.partner === partner).reduce<string | null>((m, r) => (!m || r.to > m ? r.to : m), null);
-
-/** 실제로 저장할 공개범위 — 비밀번호가 걸리면 공개(목록에서 보이고 비밀번호로 연다, TRPG 로그와 같은 규칙) */
-export const storedVis = (vis: Visibility, password?: string): Visibility => (password?.trim() ? 'public' : vis);
 
 /** 'YYYY-MM-DDTHH:mm' → 'YYYY.MM.DD' */
 export const fmtDay = (at: string) => at.slice(0, 10).replace(/-/g, '.');
@@ -214,4 +211,18 @@ export function useSsulFavs(userId: string | undefined): { ids: Set<string>; tog
     setFavs(mine ? favs.map(f => (f.id === docId ? doc : f)) : [...favs, doc]);
   };
   return { ids, toggle, enabled: !!userId };
+}
+
+/** /api/ssul/* 오류 코드 → 안내 문구 (업로드·썰 관리 공용) */
+export function ssulErrText(code: string): string {
+  const T: Record<string, string> = {
+    'no-key': '서버에 ANTHROPIC_API_KEY가 없습니다 — Vercel 환경변수에 등록하고 다시 배포해 주세요',
+    'bad-key': 'ANTHROPIC_API_KEY가 올바르지 않습니다',
+    'no-credit': 'Anthropic API 크레딧이 부족합니다 — console.anthropic.com → Billing에서 충전한 뒤 이어서 진행해 주세요',
+    'unauthorized': '관리자 로그인이 필요합니다',
+    'rate-limit': '요청이 몰려 잠시 막혔습니다 — 조금 뒤 이어서 진행해 주세요',
+    'refusal': '이 묶음은 모델이 처리를 거절했습니다',
+    'too-long': '응답이 너무 길어졌습니다 — 다시 시도해 주세요',
+  };
+  return T[code] ?? `실패: ${code}`;
 }

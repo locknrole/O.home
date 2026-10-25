@@ -8,7 +8,8 @@
 // 키를 가진 서버를 아무나 쓰지 못하게, 호출한 사람이 **이 홈의 관리자**인지 확인한다.
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { verifyAdmin } from '@/lib/serverAuth';
+import { verifyAdmin, claudeError } from '@/lib/serverAuth';
+import { TAG_RULES } from '@/lib/kakao/prompts';
 import type { AnalyzeRequest, AnalyzeResult, AnalyzeResponse } from '@/lib/kakao/analyze';
 
 export const runtime = 'nodejs';
@@ -29,7 +30,7 @@ For each session you receive (lines look like "#<index> <name>: <text>"; "나(..
 - title: a short, evocative Korean title (≤ 20 characters) naming what happens, not "썰" or the date.
 - summary: one Korean sentence (≤ 80 characters).
 - au: the key of the AU option it belongs to, chosen only when the characters or setting clearly match; otherwise "". Do not invent keys.
-- tags: 2–5 short Korean keywords (themes, tropes, situations, settings). Reuse an existing tag whenever one fits instead of coining a synonym (e.g. use an existing "IF" rather than "가정상황"). Do not repeat the AU or character names as tags.
+- tags: ${TAG_RULES}
 - continues: if this 썰 is the same story as an earlier 썰 — an earlier entry of this same session (split only by 잡담), an earlier session in this batch, a "previous 썰", or a session that was cut mid-story — give that earlier 썰's id; otherwise "". The id of a 썰 in this batch is "<session id>#<its 0-based position in that session's ssuls>"; previous 썰 ids are given in their list. Only point backwards in time.
 
 Return one result per session, using the session ids exactly as given.`;
@@ -146,12 +147,7 @@ export async function POST(req: NextRequest) {
     const ids = new Set(q.sessions.map(s => s.id));
     return NextResponse.json({ results: out.results.filter(r => ids.has(r.id)) } satisfies AnalyzeResponse, { headers: NO_STORE });
   } catch (err) {
-    const status = err instanceof Anthropic.RateLimitError ? 429
-      : err instanceof Anthropic.AuthenticationError ? 503
-        : err instanceof Anthropic.APIError ? (err.status ?? 502) : 502;
-    const error = err instanceof Anthropic.AuthenticationError ? 'bad-key'
-      : err instanceof Anthropic.RateLimitError ? 'rate-limit'
-        : err instanceof Error ? err.message : String(err);
+    const { error, status } = await claudeError(err);
     return NextResponse.json({ results: [], error } satisfies AnalyzeResponse, { status, headers: NO_STORE });
   }
 }

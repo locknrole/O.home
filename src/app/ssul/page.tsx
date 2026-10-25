@@ -16,7 +16,7 @@ export default function SsulPage() {
   const router = useRouter();
   const { isAdmin, user } = useAuth();
   const fav = useSsulFavs(user?.id);
-  const [ssuls, , loaded] = useLocalList<Ssul>(SSUL_KEY, SSUL_SEED);
+  const [ssuls, setSsuls, loaded] = useLocalList<Ssul>(SSUL_KEY, SSUL_SEED);
   const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
   const [chars] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
   const aus = useMemo(() => auChoices(rels, chars), [rels, chars]);
@@ -38,6 +38,13 @@ export default function SsulPage() {
     if (a) setAu(a);
   }, []);
 
+  // 없앤 비밀번호 기능의 흔적 정리 — 공개 문서에 비밀번호가 평문으로 남아 있지 않게, 관리자가 열 때 한 번 지운다.
+  // 공개범위는 그대로(비밀번호 썰은 원래 전체공개로 저장돼 있었다). 열람 제한은 메뉴 공개범위로
+  useEffect(() => {
+    if (!loaded || !isAdmin || !ssuls.some(s => s.password)) return;
+    setSsuls(ssuls.map(s => (s.password ? { ...s, password: undefined } : s)));
+  }, [loaded, isAdmin, ssuls, setSsuls]);
+
   const favKey = [...fav.ids].join(',');
   // 기간을 뺀 나머지 조건 — 기간 칸의 개수는 이걸 기준으로 센다 (다른 조건과 맞물리게)
   const filtered = useMemo(() => {
@@ -46,7 +53,7 @@ export default function SsulPage() {
       .filter(s => au === 'all' || (au === 'none' ? !s.relId : auKeyOf(s) === au))
       .filter(s => tags.every(t => s.tags.includes(t)))
       .filter(s => !favOnly || fav.ids.has(s.id))
-      .filter(s => !needle || s.title.toLowerCase().includes(needle) || ((!s.password || isAdmin) && (s.summary ?? '').toLowerCase().includes(needle))
+      .filter(s => !needle || s.title.toLowerCase().includes(needle) || (s.summary ?? '').toLowerCase().includes(needle)
         || s.tags.some(t => t.toLowerCase().includes(needle)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ssuls, au, tags, q, isAdmin, favOnly, favKey]);
@@ -110,30 +117,28 @@ export default function SsulPage() {
             <div key={g.ym} className="ssul-tl">
               {/* 해가 바뀔 때마다 큰 연도 제목 — 썰이 많아도 어디쯤인지 보이게 */}
               {g.ym.slice(0, 4) !== groups[gi - 1]?.ym.slice(0, 4) && (
-                <h2 className="ssul-year">{g.ym.slice(0, 4)}<small>{shown.filter(x => x.start.startsWith(g.ym.slice(0, 4))).length}개</small></h2>
+                <h2 className="ssul-year">{g.ym.slice(0, 4)}</h2>
               )}
-              <h3 className="ssul-ym">{Number(g.ym.slice(5))}월<span>{g.items.length}</span></h3>
+              <h3 className="ssul-ym">{Number(g.ym.slice(5))}월</h3>
               <div className="ssul-tl-list">
                 {g.items.map(s => (
                   <div key={s.id} className="ssul-item">
                     <i className="dot" />
                     <div className="si-date">{fmtRange(s)}</div>
                     <div className="si-main">
-                      {fav.enabled && (
-                        <button className={`ssul-star ${fav.ids.has(s.id) ? 'on' : ''}`} title={fav.ids.has(s.id) ? '즐겨찾기 해제' : '즐겨찾기'}
-                          onClick={() => fav.toggle(s.id)}>{fav.ids.has(s.id) ? '★' : '☆'}</button>
-                      )}
                       <a className="si-title" onClick={() => router.push(`/ssul/${s.id}`)}>{s.title}</a>
                       {s.visibility !== 'public' && <span className="pill" style={{ marginLeft: 6 }}>{VIS_LABEL[s.visibility]}</span>}
-                      {s.password && <span className="pill" style={{ marginLeft: 6 }}>🔒</span>}
-                      {/* 비밀번호 썰은 요약을 숨긴다 — 제목·태그만 (관리자는 그대로) */}
-                      {s.summary && (!s.password || isAdmin) && <p className="si-sum">{s.summary}</p>}
+                      {s.summary && <p className="si-sum">{s.summary}</p>}
                       <div className="si-tags">
                         {s.relId && auLabel(auKeyOf(s)) && <span className="pill dark" onClick={() => setAu(auKeyOf(s))}>{auLabel(auKeyOf(s))}</span>}
                         {s.tags.map(t => <span key={t} className={`pill ${tags.includes(t) ? 'red' : ''}`} onClick={() => toggleTag(t)}>#{t}</span>)}
                         <small>{s.count}개 메시지</small>
                       </div>
                     </div>
+                    {fav.enabled && (
+                      <button className={`ssul-star ${fav.ids.has(s.id) ? 'on' : ''}`} title={fav.ids.has(s.id) ? '즐겨찾기 해제' : '즐겨찾기'}
+                        onClick={() => fav.toggle(s.id)}>{fav.ids.has(s.id) ? '★' : '☆'}</button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -151,19 +156,24 @@ export default function SsulPage() {
               ★ 즐겨찾기만 <small>{fav.ids.size ? ssuls.filter(s => fav.ids.has(s.id)).length : 0}</small>
             </div>
           )}
+          <h4>정렬</h4>
+          <KRadio name="ssul-ord" value="asc" current={order} onChange={() => setOrder('asc')} label="오래된 순" />
+          <div style={{ height: 7 }} />
+          <KRadio name="ssul-ord" value="desc" current={order} onChange={() => setOrder('desc')} label="최신 순" />
+          <div style={{ height: 16 }} />
           {yearCounts.length > 0 && (
             <>
               <h4>기간</h4>
-              <div className={`tag ${year === 'all' ? 'on' : ''}`} onClick={() => pickYear('all')}>전체 기간 <small>{filtered.length}</small></div>
-              {yearCounts.map(([y, n]) => (
+              <div className={`tag ${year === 'all' ? 'on' : ''}`} onClick={() => pickYear('all')}>전체 기간</div>
+              {yearCounts.map(([y]) => (
                 <React.Fragment key={y}>
-                  <div className={`tag ${year === y ? 'on' : ''}`} onClick={() => pickYear(year === y ? 'all' : y)}>{y}년 <small>{n}</small></div>
+                  <div className={`tag ${year === y ? 'on' : ''}`} onClick={() => pickYear(year === y ? 'all' : y)}>{y}년</div>
                   {year === y && (
                     <div className="ssul-months">
                       {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(mm => {
                         const n2 = monthCounts.get(mm) ?? 0;
                         return (
-                          <button key={mm} disabled={!n2} className={month === mm ? 'on' : ''} title={n2 ? `${n2}개` : ''}
+                          <button key={mm} disabled={!n2} className={month === mm ? 'on' : ''}
                             onClick={() => setMonth(month === mm ? 'all' : mm)}>{Number(mm)}월</button>
                         );
                       })}
@@ -194,10 +204,6 @@ export default function SsulPage() {
               </div>
             </>
           )}
-          <h4 style={{ marginTop: 18 }}>정렬</h4>
-          <KRadio name="ssul-ord" value="asc" current={order} onChange={() => setOrder('asc')} label="오래된 순" />
-          <div style={{ height: 7 }} />
-          <KRadio name="ssul-ord" value="desc" current={order} onChange={() => setOrder('desc')} label="최신 순" />
         </div>
       </div>
     </section>
