@@ -1979,3 +1979,19 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
   .ssul-detail-grid{grid-template-columns:minmax(0,1fr)}
   .ssul-navi{position:static;max-height:none}
 }
+
+/* 썰 채팅 — 다크 모드 가독성. 반투명 대신 바탕(--panel-solid)에 섞은 불투명 색으로 말풍선 경계를 또렷하게,
+   새하얀 글씨는 눈부시니 한 톤 낮추고, 시각·이름 같은 작은 글씨는 한 단계 밝게. 색은 여전히 테마색에서 나온다 */
+html[data-scheme="dark"] .ssul-chat{font-size:calc(14px*var(--fs,1))}
+html[data-scheme="dark"] .sc-bubble{background:color-mix(in srgb,var(--ink) 8%,var(--panel-solid));border-color:var(--line);color:color-mix(in srgb,var(--ink) 92%,var(--panel-solid));line-height:1.7}
+html[data-scheme="dark"] .sc-row.me .sc-bubble{background:color-mix(in srgb,var(--btn-dark,var(--ink)) 15%,var(--panel-solid));border-color:color-mix(in srgb,var(--btn-dark,var(--ink)) 32%,var(--panel-solid))}
+html[data-scheme="dark"] .sc-bubble.plain{background:none;border-color:transparent}
+html[data-scheme="dark"] .sc-name{color:color-mix(in srgb,var(--ink) 85%,var(--panel-solid))}
+html[data-scheme="dark"] .sc-meta small{font-size:calc(10.5px*var(--fs,1));color:color-mix(in srgb,var(--ink) 68%,var(--panel-solid))}
+html[data-scheme="dark"] .sc-day span{background:color-mix(in srgb,var(--btn-dark,var(--ink)) 10%,var(--panel-solid));border:1px solid var(--line);color:color-mix(in srgb,var(--ink) 80%,var(--panel-solid))}
+html[data-scheme="dark"] .sc-sys,
+html[data-scheme="dark"] .sc-deleted{color:color-mix(in srgb,var(--ink) 62%,var(--panel-solid))}
+html[data-scheme="dark"] .sc-media{border-color:color-mix(in srgb,var(--ink) 25%,var(--panel-solid));color:color-mix(in srgb,var(--ink) 72%,var(--panel-solid))}
+html[data-scheme="dark"] .sc-gap{background:color-mix(in srgb,var(--ink) 18%,var(--panel-solid))}
+html[data-scheme="dark"] .sn-item small,
+html[data-scheme="dark"] .si-date{color:color-mix(in srgb,var(--ink) 74%,var(--panel-solid))}
