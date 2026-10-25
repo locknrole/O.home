@@ -16,7 +16,7 @@ export default function SsulPage() {
   const router = useRouter();
   const { isAdmin, user } = useAuth();
   const fav = useSsulFavs(user?.id);
-  const [ssuls, , loaded] = useLocalList<Ssul>(SSUL_KEY, SSUL_SEED);
+  const [ssuls, setSsuls, loaded] = useLocalList<Ssul>(SSUL_KEY, SSUL_SEED);
   const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
   const [chars] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
   const aus = useMemo(() => auChoices(rels, chars), [rels, chars]);
@@ -38,6 +38,13 @@ export default function SsulPage() {
     if (a) setAu(a);
   }, []);
 
+  // 없앤 비밀번호 기능의 흔적 정리 — 공개 문서에 비밀번호가 평문으로 남아 있지 않게, 관리자가 열 때 한 번 지운다.
+  // 공개범위는 그대로(비밀번호 썰은 원래 전체공개로 저장돼 있었다). 열람 제한은 메뉴 공개범위로
+  useEffect(() => {
+    if (!loaded || !isAdmin || !ssuls.some(s => s.password)) return;
+    setSsuls(ssuls.map(s => (s.password ? { ...s, password: undefined } : s)));
+  }, [loaded, isAdmin, ssuls, setSsuls]);
+
   const favKey = [...fav.ids].join(',');
   // 기간을 뺀 나머지 조건 — 기간 칸의 개수는 이걸 기준으로 센다 (다른 조건과 맞물리게)
   const filtered = useMemo(() => {
@@ -46,7 +53,7 @@ export default function SsulPage() {
       .filter(s => au === 'all' || (au === 'none' ? !s.relId : auKeyOf(s) === au))
       .filter(s => tags.every(t => s.tags.includes(t)))
       .filter(s => !favOnly || fav.ids.has(s.id))
-      .filter(s => !needle || s.title.toLowerCase().includes(needle) || ((!s.password || isAdmin) && (s.summary ?? '').toLowerCase().includes(needle))
+      .filter(s => !needle || s.title.toLowerCase().includes(needle) || (s.summary ?? '').toLowerCase().includes(needle)
         || s.tags.some(t => t.toLowerCase().includes(needle)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ssuls, au, tags, q, isAdmin, favOnly, favKey]);
@@ -125,9 +132,7 @@ export default function SsulPage() {
                       )}
                       <a className="si-title" onClick={() => router.push(`/ssul/${s.id}`)}>{s.title}</a>
                       {s.visibility !== 'public' && <span className="pill" style={{ marginLeft: 6 }}>{VIS_LABEL[s.visibility]}</span>}
-                      {s.password && <span className="pill" style={{ marginLeft: 6 }}>🔒</span>}
-                      {/* 비밀번호 썰은 요약을 숨긴다 — 제목·태그만 (관리자는 그대로) */}
-                      {s.summary && (!s.password || isAdmin) && <p className="si-sum">{s.summary}</p>}
+                      {s.summary && <p className="si-sum">{s.summary}</p>}
                       <div className="si-tags">
                         {s.relId && auLabel(auKeyOf(s)) && <span className="pill dark" onClick={() => setAu(auKeyOf(s))}>{auLabel(auKeyOf(s))}</span>}
                         {s.tags.map(t => <span key={t} className={`pill ${tags.includes(t) ? 'red' : ''}`} onClick={() => toggleTag(t)}>#{t}</span>)}

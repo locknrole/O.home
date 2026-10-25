@@ -14,7 +14,7 @@ import { putBlob } from '@/lib/blobStore';
 import { Relation, REL_SEED, Character, CHAR_SEED, Visibility } from '@/lib/charStore';
 import {
   Ssul, SSUL_KEY, SSUL_SEED, SsulImport, SSUL_IMP_KEY, SSUL_IMP_SEED, SsulBody, SsulMsg,
-  lastImportedAt, fmtDay, fmtRange, auChoices, splitAuKey, auKeyOf, fetchBody, saveBodies, storedVis,
+  lastImportedAt, fmtDay, fmtRange, auChoices, splitAuKey, auKeyOf, fetchBody, saveBodies,
   useSsulDict, normTags, renameMsgs, type SsulDict,
 } from '@/lib/ssulStore';
 import { parseKakao, type KakaoMsg, type ParseResult } from '@/lib/kakao/parse';
@@ -98,8 +98,6 @@ export default function SsulUploadPage() {
   const [partner, setPartner] = useState('');
   const [gapMin, setGapMin] = useState('180');
   const [defVis, setDefVis] = useState<Visibility>('public');
-  /** 이번 업로드의 새 썰 전체에 거는 열람 비밀번호 (선택) */
-  const [pw, setPw] = useState('');
 
   const [phase, setPhase] = useState<'idle' | 'analyzing' | 'review' | 'saving'>('idle');
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -260,12 +258,11 @@ export default function SsulUploadPage() {
           continue;
         }
         const id = newId();
-        const password = pw.trim() || undefined;
-        const vis = storedVis(r.visibility, password);
+        const vis = r.visibility;
         newItems.push({
           id, title: r.title.trim() || '제목 없음', summary: r.summary, partner, me: dict.names[me]?.trim() || me,
           start: msgs[0].at, end: msgs[msgs.length - 1].at, count: msgs.length,
-          relId, auId, tags, visibility: vis, ...(password ? { password } : null), createdAt: now,
+          relId, auId, tags, visibility: vis, createdAt: now,
         });
         newBodies.push({ id, msgs, visibility: vis });
       }
@@ -361,20 +358,11 @@ export default function SsulUploadPage() {
             <small>잡담만 있던 세션 {sessions.length - new Set(rows.flatMap(r => r.sessionIds.map(k => k.slice(0, k.lastIndexOf('#'))))).size}개 제외됨</small>
             <span style={{ flex: 1 }} />
             <small>새 썰 공개범위</small>
-            {pw.trim()
-              ? <small className="pill">🔒 비밀번호로 열람</small>
-              : <KSelect minWidth={110} value={defVis} onChange={v => { setDefVis(v as Visibility); setRows(rs => rs.map(r => ({ ...r, visibility: v as Visibility }))); }} options={VIS_OPTIONS} />}
-            <KInput type="password" autoComplete="new-password" placeholder="열람 비밀번호 (일괄 · 선택)" value={pw} onChange={e => setPw(e.target.value)} style={{ maxWidth: 190 }} />
+            <KSelect minWidth={110} value={defVis} onChange={v => { setDefVis(v as Visibility); setRows(rs => rs.map(r => ({ ...r, visibility: v as Visibility }))); }} options={VIS_OPTIONS} />
             <button className="btn btn-dark" disabled={phase === 'saving' || !includedN} onClick={upload}>
               {phase === 'saving' ? '저장 중…' : `업로드 (${includedN})`}
             </button>
           </div>
-          {pw.trim() && rows.length > 0 && (
-            <p className="hint" style={{ margin: '-4px 0 12px', color: 'var(--page-desc,#c9ccd2)' }}>
-              새로 저장되는 썰 전부에 같은 비밀번호가 걸립니다 — 목록에는 제목·날짜·태그가 보이고, 열람할 때 비밀번호를 묻습니다(관리자는 바로 열림).
-              이전 썰에 이어 붙이는 것은 그 썰의 설정을 따릅니다. 화면에서만 확인하는 방식이라 완전한 차단은 아닙니다.
-            </p>
-          )}
           {rows.length === 0 && <div className="panel" style={{ textAlign: 'center', padding: 40, color: 'var(--faint)', fontSize: 13 }}>이 구간에서는 썰을 찾지 못했습니다</div>}
           <div className="ssul-drafts">
             {rows.map(r => {
@@ -397,9 +385,7 @@ export default function SsulUploadPage() {
                       <div className="sd-fields">
                         <KSelect minWidth={170} value={r.au} onChange={v => patch(r.key, { au: v })} options={auOpts} />
                         <KInput placeholder="태그 (쉼표로 구분)" value={r.tagText} onChange={e => patch(r.key, { tagText: e.target.value })} style={{ flex: 1 }} />
-                        {pw.trim()
-                          ? <span className="pill" style={{ alignSelf: 'center' }}>🔒 비밀번호</span>
-                          : <KSelect minWidth={110} value={r.visibility} onChange={v => patch(r.key, { visibility: v as Visibility })} options={VIS_OPTIONS} />}
+                        <KSelect minWidth={110} value={r.visibility} onChange={v => patch(r.key, { visibility: v as Visibility })} options={VIS_OPTIONS} />
                       </div>
                     </>
                   )}

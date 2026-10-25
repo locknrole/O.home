@@ -51,7 +51,7 @@ export function SsulNavigator({ ssuls, current, aus, pick, onPick, onGo }: {
             <a key={s.id} className={`sn-item ${cur ? 'cur' : ''}`} onClick={() => { if (!cur) onGo(s.id); }} title={s.title}>
               <i className="dot" />
               <small>{shortDate(s.start, year)}</small>
-              <span>{s.password ? '🔒 ' : ''}{s.title}</span>
+              <span>{s.title}</span>
             </a>
           );
         })}
@@ -75,7 +75,7 @@ export function SsulNavigator({ ssuls, current, aus, pick, onPick, onGo }: {
               {related.slice(0, RELATED_MAX).map(s => (
                 <a key={s.id} className="sn-item" onClick={() => onGo(s.id)} title={s.title}>
                   <small>{shortDate(s.start, year)}</small>
-                  <span>{s.password ? '🔒 ' : ''}{s.title}</span>
+                  <span>{s.title}</span>
                 </a>
               ))}
               {!related.length && <p className="hint" style={{ margin: 0 }}>다른 썰이 없습니다</p>}
