@@ -23,10 +23,9 @@ export interface AnalyzeRequest {
   prev: PrevSsul[];
 }
 
-export interface AnalyzeResult {
-  id: string;
-  isSsul: boolean;
-  /** 썰 부분의 첫/끝 메시지 순번 — 앞뒤 잡담을 잘라낸다 */
+/** 세션 안의 썰 하나 — 한 세션에서 주제가 바뀌면 여러 개가 나온다 */
+export interface SsulPart {
+  /** 이 썰의 첫/끝 메시지 순번 — 앞뒤·사이 잡담을 잘라낸다 */
   from: number;
   to: number;
   title: string;
@@ -34,16 +33,25 @@ export interface AnalyzeResult {
   /** AuOption.key 또는 '' */
   au: string;
   tags: string[];
-  /** 이 세션이 이어 가는 앞 썰(이번 업로드의 세션 id 또는 PrevSsul.id) — 없으면 '' */
+  /** 이 썰이 이어 가는 앞 썰(partKey 또는 PrevSsul.id) — 없으면 '' */
   continues: string;
 }
+
+export interface AnalyzeResult {
+  id: string;
+  /** 비어 있으면 잡담만 있던 세션 */
+  ssuls: SsulPart[];
+}
+
+/** 썰 하나를 가리키는 id — 「세션id#순서」. 이어짐(continues)이 이걸로 앞 썰을 가리킨다 */
+export const partKey = (sessionId: string, k: number) => `${sessionId}#${k}`;
 
 export interface AnalyzeResponse { results: AnalyzeResult[]; error?: string }
 
 /* ---------- 입력 만들기 ---------- */
 
 const MSG_CAP = 400;          // 메시지 하나당 판별에 보낼 최대 글자 (원문은 그대로 저장된다)
-const SESSION_CAP = 12_000;   // 세션 하나당 최대 글자 — 넘으면 앞 2/3 + 뒤 1/3만 보낸다
+const SESSION_CAP = 40_000;   // 안전장치 — 긴 세션은 분할 단계(splitSessions maxChars)에서 이미 잘려 온다
 
 export function msgLine(m: KakaoMsg, me: string): string {
   const who = m.kind === 'system' ? '(시스템)' : m.sender === me ? `나(${m.sender})` : m.sender;
@@ -95,8 +103,8 @@ export function batchSessions(items: AnalyzeSession[], maxChars = 30_000, maxCou
 /* ---------- 결과 → 초안 ---------- */
 
 export interface Draft {
-  key: string;                 // 첫 세션 id
-  sessionIds: string[];
+  key: string;                 // 첫 썰의 partKey
+  sessionIds: string[];        // 합쳐진 썰들의 partKey
   title: string;
   summary: string;
   au: string;
@@ -106,35 +114,56 @@ export interface Draft {
   appendTo?: string;
 }
 
-/** 판별 결과를 썰 초안으로. 썰이 아닌 세션은 버리고, 이어지는 세션은 앞 썰에 합친다. */
+/** 판별 결과를 썰 초안으로. 잡담은 버리고(썰 사이 잡담도 잘라 냄), 주제가 다른 썰은 각각 따로,
+ *  같은 이야기가 이어지는 썰은(같은 세션이든 다른 날이든) 앞 썰에 합친다. */
 export function buildDrafts(msgs: KakaoMsg[], sessions: Session[], results: AnalyzeResult[], prevIds: Set<string>): Draft[] {
   const byId = new Map(sessions.map(s => [s.id, s]));
+  type Flat = SsulPart & { key: string; sid: string };
+  const parts: Flat[] = [];
+  for (const r of results) {
+    const s = byId.get(r.id);
+    if (!s) continue;
+    r.ssuls.forEach((p, k) => {
+      // 범위가 세션 밖이면(모델 실수) 세션 경계로 맞춘다
+      const from = p.from >= s.from && p.from <= s.to ? p.from : s.from;
+      const to = p.to >= from && p.to <= s.to ? p.to : s.to;
+      parts.push({ ...p, from, to, key: partKey(r.id, k), sid: r.id });
+    });
+  }
+  parts.sort((a, b) => a.from - b.from);
+  // 모델이 세션 id만 적어 보내면 그 세션의 마지막 썰로 본다
+  const lastOfSession = new Map<string, string>();
+  for (const p of parts) lastOfSession.set(p.sid, p.key);
+
   const drafts: Draft[] = [];
-  const owner = new Map<string, Draft>();   // 세션 id → 그 세션이 들어간 초안
-  const order = [...results].filter(r => r.isSsul && byId.has(r.id))
-    .sort((a, b) => byId.get(a.id)!.from - byId.get(b.id)!.from);
-  for (const r of order) {
-    const s = byId.get(r.id)!;
-    // 잘라낼 범위가 세션 밖이면(모델 실수) 세션 전체를 쓴다
-    const from = r.from >= s.from && r.from <= s.to ? r.from : s.from;
-    const to = r.to >= from && r.to <= s.to ? r.to : s.to;
-    const part = msgs.slice(from, to + 1);
-    const host = r.continues ? owner.get(r.continues) : undefined;
+  const owner = new Map<string, Draft>();   // 썰 key → 그 썰이 들어간 초안
+  let lastEnd = -1;
+  for (const p of parts) {
+    const from = Math.max(p.from, lastEnd + 1);   // 겹치게 잘라 보낸 경우 같은 메시지가 두 번 들어가지 않게
+    if (from > p.to) continue;
+    lastEnd = p.to;
+    const part = msgs.slice(from, p.to + 1);
+    const ref = p.continues && !owner.has(p.continues) ? lastOfSession.get(p.continues) ?? p.continues : p.continues;
+    const host = ref ? owner.get(ref) : undefined;
+    // 같은 이야기면 합친다 — 같은 세션 안에서 잡담에 끊긴 경우도 (사이 잡담은 이미 잘려 나가 있다, 사용자 확정)
     if (host) {
       host.msgs.push(...part);
-      host.sessionIds.push(r.id);
-      host.tags = [...new Set([...host.tags, ...r.tags])];
-      if (!host.au && r.au) host.au = r.au;
-      owner.set(r.id, host);
+      host.sessionIds.push(p.key);
+      host.tags = [...new Set([...host.tags, ...p.tags])];
+      if (!host.au && p.au) host.au = p.au;
+      owner.set(p.key, host);
       continue;
     }
     const d: Draft = {
-      key: r.id, sessionIds: [r.id], title: r.title, summary: r.summary, au: r.au,
-      tags: [...new Set(r.tags)], msgs: part,
-      ...(r.continues && prevIds.has(r.continues) ? { appendTo: r.continues } : null),
+      key: p.key, sessionIds: [p.key], title: p.title, summary: p.summary, au: p.au,
+      tags: [...new Set(p.tags)], msgs: part,
+      ...(ref && prevIds.has(ref) ? { appendTo: ref } : null),
     };
     drafts.push(d);
-    owner.set(r.id, d);
+    owner.set(p.key, d);
   }
   return drafts;
 }
+
+/** 초안이 며칠에 걸쳐 있는지 (채팅 날짜 기준) */
+export const daySpan = (msgs: { at: string }[]) => new Set(msgs.map(m => m.at.slice(0, 10))).size;
