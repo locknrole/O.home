@@ -22,33 +22,25 @@ const FOLD_LABEL = { spoiler: '스포일러', adult: '수위 주의' };
 /** 갤러리 무한 스크롤 한 묶음 — 카드는 이미지만 (제목·날짜는 상세에서, v2.0 사용자 요청) */
 const FEED_STEP = 24;
 
-/** 핀터레스트형 카드 — 대표 이미지를 원래 비율로(썸네일 크롭이 있으면 그 4:3 크롭으로). 비율은 Masonry에 알린다 */
+/** 핀터레스트형 카드 — 대표 이미지를 원래 비율로. 비율은 Masonry에 알린다.
+ *  썸네일 크롭은 리스트 보기에만 쓴다 — 갤러리 보기는 크롭을 지정해도 원본 비율 그대로 (v2.1 사용자 요청) */
 function GalleryCard({ p, folded, report, onUnveil }: {
   p: BackupPost; folded: boolean; report: (ratio: number) => void; onUnveil: () => void;
 }) {
   const [url, onThumbErr] = useThumbSrc(p.images[0]);   // 목록 카드는 썸네일로 (v2.1)
   const reported = useRef(false);
   const done = (r: number) => { if (!reported.current) { reported.current = true; report(r); } };
-  // 「썸네일 수정」으로 크롭을 지정한 글은 원래 비율 대신 그 크롭(4:3)으로 보인다 (v2.0 사용자 요청)
-  const cropped = !!(p.thumbCrop && p.images[0]);
   useEffect(() => {
-    if (cropped) report(0.75);   // 나중에 크롭을 지정해도 바로 4:3 자리로
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cropped]);
-  useEffect(() => {
-    if (cropped) return;
     if (!p.images[0]) { done(0.75); return; }   // 이미지 없는 글 — 자리표시 4:3
     // 끝내 안 불러와지는 이미지가 뒤 카드들을 막지 않게
     const t = setTimeout(() => done(0.75), 8000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.images[0], cropped]);
+  }, [p.images[0]]);
   return (
     <>
       <div className={`gm-img ${folded ? 'veil' : ''}`}>
-        {cropped
-          ? <CroppedBlobImg thumb fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} alt={p.title} />
-          : url
+        {url
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={url} alt={p.title} draggable={false}
             onLoad={e => done(e.currentTarget.naturalHeight / e.currentTarget.naturalWidth)}
