@@ -73,6 +73,10 @@ export interface Backend {
    *  「글에도 적용」을 누르면 돈다. 내용(data)·순서(sort)는 건드리지 않는다. */
   refreshVis<T extends ListItem>(coll: string, items: T[], uid: string | null): Promise<number>;
   subscribe(coll: string, onChange: () => void): () => void;
+  /** 목록을 실시간으로 받는다 (v2.1) — 처음 한 번 전체, 그다음엔 바뀔 때마다 새 목록을 onRows로.
+   *  fetchList + subscribe(바뀌면 다시 전체 읽기)를 대신한다 — 바뀐 문서만 받으므로 읽기 횟수가 훨씬 적다.
+   *  읽기에 실패하면 onError (그 질의는 빈 것으로 친다). 로그인 상태가 바뀌면 부르는 쪽이 다시 시작한다 */
+  watchList?<T extends ListItem>(coll: string, onRows: (rows: T[]) => void, onError?: (e: unknown) => void): () => void;
 
   /* ---- 설정(key/value) ---- */
   fetchSetting<T>(key: string): Promise<T | null>;

@@ -398,6 +398,47 @@ export async function createFirebaseBackend(cfg: FirebaseCfg): Promise<Backend> 
       return () => { stopped = true; offs.forEach(off => off()); offs = []; };
     },
 
+    /* 실시간 목록 (v2.1) — 구독이 보내 주는 스냅샷을 그대로 목록으로 쓴다.
+       예전엔 구독은 「바뀌었다」 신호로만 쓰고 매번 getDocsFromServer로 컬렉션 전체를 다시 읽었다 —
+       구독 자체도 처음에 전체를 읽으므로 **처음부터 두 배**, 글 하나만 바뀌어도 또 전체였다.
+       스냅샷은 바뀐 문서만 새로 읽는다. 내 쓰기는 커밋 순간 로컬에 먼저 반영되어 바로 오고(SDK가 순서를
+       보장), 거부되면 SDK가 되돌린 목록을 다시 보내 준다 — 예전의 「낡은 결과가 덮어쓰기」 문제가 없다 */
+    watchList<T extends ListItem>(coll: string, onRows: (rows: T[]) => void, onError?: (e: unknown) => void) {
+      let offs: Array<() => void> = [];
+      let stopped = false;
+      void readSets().then(sets => {
+        if (stopped) return;
+        // 질의(공개분 · 내 글)별 마지막 결과 — 둘 다 한 번씩 도착해야 목록을 낸다
+        const parts: (Map<string, { sort: number; at: unknown; item: T }> | null)[] = sets.map(() => null);
+        const emit = () => {
+          if (parts.some(p => !p)) return;
+          const seen = new Map<string, { sort: number; item: T }>();
+          parts.forEach(p => p!.forEach((v, id) => { if (!seen.has(id)) seen.set(id, v); }));
+          onRows([...seen.values()].sort((a, b) => a.sort - b.sort).map(v => v.item));
+        };
+        offs = sets.map((cs, i) => onSnapshot(listQuery(coll, cs), snap => {
+          const prev = parts[i];
+          const next = new Map<string, { sort: number; at: unknown; item: T }>();
+          snap.docs.forEach(d => {
+            const raw = d.data() as { data?: Record<string, unknown>; sort?: number; updatedAt?: unknown };
+            const old = prev?.get(d.id);
+            // 안 바뀐 문서는 예전 객체를 그대로 — 화면이 바뀐 항목만 다시 그리게 (memo·비교가 통한다)
+            const same = old && old.at === raw.updatedAt && !d.metadata.hasPendingWrites && raw.updatedAt != null;
+            next.set(d.id, same ? old : {
+              sort: raw.sort ?? 0, at: raw.updatedAt, item: { ...(raw.data ?? {}), id: d.id } as T,
+            });
+          });
+          parts[i] = next;
+          emit();
+        }, err => {
+          // 권한 없음 등 — 그 질의는 빈 것으로 치고 나머지는 보여 준다
+          onError?.(err);
+          if (!parts[i]) { parts[i] = new Map(); emit(); }
+        }));
+      }).catch(err => { if (!stopped) onError?.(err); });
+      return () => { stopped = true; offs.forEach(off => off()); offs = []; };
+    },
+
     async fetchSetting<T>(key: string) {
       const snap = await getDoc(doc(db, 'settings', key));
       return snap.exists() ? ((snap.data() as { value: T }).value ?? null) : null;
