@@ -20,7 +20,7 @@ const SETTING_KEY = 'ohome.site.v1';
 const FALLBACK: SiteMeta = { title: 'O.HOME' };
 
 type Cfg =
-  | { kind: 'firebase'; projectId: string; apiKey: string; databaseId?: string }
+  | { kind: 'firebase'; projectId: string; apiKey: string; databaseId?: string; storageBucket?: string }
   | { kind: 'supabase'; url: string; anonKey: string };
 
 /** 배포에 올라간 연결 설정 읽기 — 없으면 env, 그것도 없으면 null (api/push 라우트도 쓴다 — 호출한 사람 확인용) */
@@ -29,14 +29,17 @@ export async function serverSideConfig(): Promise<Cfg | null> {
     const raw = await readFile(path.join(process.cwd(), 'public', 'ohome.config.json'), 'utf8');
     const o = JSON.parse(raw) as Record<string, string>;
     if (o.apiKey && o.projectId) {
-      return { kind: 'firebase', projectId: o.projectId, apiKey: o.apiKey, databaseId: o.databaseId };
+      return { kind: 'firebase', projectId: o.projectId, apiKey: o.apiKey, databaseId: o.databaseId, storageBucket: o.storageBucket };
     }
     if (o.url && o.anonKey) return { kind: 'supabase', url: o.url, anonKey: o.anonKey };
   } catch { /* 파일이 없으면 env로 */ }
   const pid = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const key = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (pid && key) {
-    return { kind: 'firebase', projectId: pid, apiKey: key, databaseId: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_ID };
+    return {
+      kind: 'firebase', projectId: pid, apiKey: key, databaseId: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    };
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
