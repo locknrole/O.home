@@ -19,8 +19,11 @@ import { useCardSort, mergeOrder } from '@/lib/cardSort';
 import { useMenuSettings, canGalleryWrite } from '@/lib/menuStore';
 
 const FOLD_LABEL = { spoiler: '스포일러', adult: '수위 주의' };
-/** 갤러리 무한 스크롤 한 묶음 — 카드는 이미지만 (제목·날짜는 상세에서, v2.0 사용자 요청) */
-const FEED_STEP = 24;
+/** 리스트 보기 한 페이지 — 글 목록과 같은 20개 (v2.0 사용자 요청) */
+const PER = 20;
+/** 갤러리 무한 스크롤 한 묶음 — 리스트 한 페이지와 같은 개수 (v2.1 사용자 요청).
+ *  카드는 이미지만 (제목·날짜는 상세에서, v2.0 사용자 요청) */
+const FEED_STEP = PER;
 
 /** 핀터레스트형 카드 — 대표 이미지를 원래 비율로. 비율은 Masonry에 알린다.
  *  썸네일 크롭은 리스트 보기에만 쓴다 — 갤러리 보기는 크롭을 지정해도 원본 비율 그대로 (v2.1 사용자 요청) */
@@ -116,9 +119,7 @@ function BackupPageInner() {
   // 편집모드 카드 드래그 정렬 (v1.9 — 갤러리 보기)
   const sort = useCardSort(visible, next => setPosts(mergeOrder(posts, next)), editOn && isAdmin);
 
-  /* 리스트 보기는 페이지로 (v2.0 사용자 요청) — 글 목록과 같은 20개.
-     갤러리 보기는 핀터레스트형 무한 스크롤 — FEED_STEP개씩 이어 붙인다 */
-  const PER = 20;
+  /* 리스트 보기는 페이지로 (PER개씩), 갤러리 보기는 핀터레스트형 무한 스크롤 — FEED_STEP개씩 이어 붙인다 */
   const [feedN, setFeedN] = useState(FEED_STEP);
   const [feedReady, setFeedReady] = useState(false);
   const feed = visible.slice(0, feedN);
@@ -132,9 +133,11 @@ function BackupPageInner() {
     if (!el || view !== 'gal' || !feedReady || feedN >= visible.length) return;
     const io = new IntersectionObserver(es => {
       if (es.some(e => e.isIntersecting)) setFeedN(n => n + FEED_STEP);
-    }, { rootMargin: '600px 0px' });
-    io.observe(el);
-    return () => io.disconnect();
+    }, { rootMargin: '100px 0px' });   // 넉넉히 미리 당기면 첫 화면부터 두세 묶음이 뜬다 — 끝에 거의 닿았을 때만 (v2.1)
+    // .masonry 높이 전환(.3s)이 끝난 뒤부터 본다 — 0에서 자라는 동안엔 끝 표시가 잠깐 화면에 보여
+    // 스크롤하지 않아도 다음 묶음이 불려 왔다 (첫 화면 20개가 40개로 뜨던 원인, v2.1)
+    const t = setTimeout(() => io.observe(el), 350);
+    return () => { clearTimeout(t); io.disconnect(); };
   }, [view, feedReady, feedN, visible.length]);
   const [page, setPage] = useState(1);
   const pages = Math.max(1, Math.ceil(visible.length / PER));
