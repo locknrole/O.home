@@ -80,13 +80,20 @@ const schemeOf = (d: ThemeStore, viewer: Scheme | null): Scheme | null =>
 function skinVars(d: ThemeStore, scheme: Scheme): ThemeVars {
   const preset = scheme === 'light' ? LIGHT_THEME : DARK_THEME;
   const site = d.perMode[d.mode];
+  const mine = d.skin?.[scheme], other = d.skin?.[scheme === 'light' ? 'dark' : 'light'];
   return {
     ...preset,
     ...(d.mode === 'point' ? { accent: d.pointAccent, accentSoft: derivePointTheme(d.pointAccent, scheme).accentSoft } : {}),
-    pageHead: site.pageHead, pageHeadM: site.pageHeadM,
-    ...(d.skin?.[scheme] ?? {}),
+    ...(mine ?? {}),
+    /* 헤더 표시는 색이 아니라 명암과 무관 — 한쪽 명암에서만 정해 둔 예전 저장분도 반대쪽에 그대로 (v2.1 사용자 제보 —
+       「라이트에서 페이지 제목을 숨겼는데 다크에서는 보인다」) */
+    pageHead: mine?.pageHead ?? other?.pageHead ?? site.pageHead,
+    pageHeadM: mine?.pageHeadM ?? other?.pageHeadM ?? site.pageHeadM,
   };
 }
+
+/** 명암과 무관한 표시 옵션 — 스킨 덧씌움에 넣을 때 라이트·다크 양쪽에 함께 넣는다 */
+const SCHEME_FREE: (keyof ThemeVars)[] = ['pageHead', 'pageHeadM'];
 
 function applyToDom(vars: ThemeVars) {
   const css = themeToCssVars(vars);
@@ -244,6 +251,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setDraft(d => {
       const sc = schemeOf(d, viewerScheme);
       if (!sc) return { ...d, perMode: { ...d.perMode, custom: { ...d.perMode.custom, [key]: value } } };
+      if (SCHEME_FREE.includes(key)) {
+        return { ...d, skin: {
+          light: { ...(d.skin?.light ?? {}), [key]: value },
+          dark: { ...(d.skin?.dark ?? {}), [key]: value },
+        } };
+      }
       return { ...d, skin: { ...d.skin, [sc]: { ...(d.skin?.[sc] ?? {}), [key]: value } } };
     }), [viewerScheme]);
 
