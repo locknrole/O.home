@@ -115,6 +115,7 @@ html:not([data-scheme="custom"]) body::after{
     color:color-mix(in srgb,var(--top-fg) 62%,transparent);background:none;
   }
   .grp .sub button:hover,.grp .sub a:hover{background:none;color:var(--top-hv)}
+  .grp .sub button.on{color:var(--top-hv);font-weight:600}   /* 지금 보는 하위 메뉴 — 상위 메뉴 .on과 같게 (v2.1) */
   .grp.more{display:none}
   /* ✦ — 마우스를 올린 메뉴·지금 메뉴 왼쪽 */
   .gnb button::before{

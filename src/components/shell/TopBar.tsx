@@ -84,6 +84,18 @@ export function TopBar() {
   }, [catOpen]);
   useEffect(() => { setCatOpen(false); }, [pathname]);   // 다른 페이지로 가면 닫는다
 
+  /* 지금 보고 있는 메뉴 표시 (.on) — 하위 메뉴도 (v2.1 사용자 제보: 상위만 색이 들어갔다).
+     여러 개로 만든 게시판·갤러리는 같은 경로에 쿼리로 갈리므로(/board?b=…) 쿼리까지 비교한다.
+     쿼리만 바뀌는 이동에는 usePathname이 다시 그려 주지 않아 nav·뒤로가기에서 직접 맞춘다 */
+  const [search, setSearch] = useState('');
+  useEffect(() => { setSearch(window.location.search); }, [pathname]);
+  useEffect(() => {
+    const sync = () => setSearch(window.location.search);
+    window.addEventListener('popstate', sync);
+    return () => window.removeEventListener('popstate', sync);
+  }, []);
+  const isOn = (href: string) => href === pathname + search;
+
   useEffect(() => {
     if (!menuOpen && !notifOpen) return;
     const close = (e: MouseEvent) => {
@@ -138,6 +150,7 @@ export function TopBar() {
     const cur = pathname + window.location.search;
     if (href === cur) { refreshPage(); return; }
     router.push(href);
+    setSearch(new URL(href, window.location.origin).search);
   };
 
   // 상위 메뉴 개수 무제한 (v1.9) — 바 폭을 넘치는 항목은 「⋯」 드롭다운으로 자동 이동 (priority+)
@@ -202,7 +215,7 @@ export function TopBar() {
               </button>
               <div className="sub">
                 {item.children.map(c => (
-                  <button key={c.href} onClick={() => nav(c.href)}>
+                  <button key={c.href} className={isOn(c.href) ? 'on' : ''} onClick={() => nav(c.href)}>
                     {c.label}{dotHrefs.has(c.href) && <small className="nd">●</small>}
                   </button>
                 ))}
@@ -230,7 +243,7 @@ export function TopBar() {
                   <div className="sub-grp" key={item.label}>
                     <div className="sub-cap">{item.label}</div>
                     {item.children.map(c => (
-                      <button key={c.href} onClick={() => nav(c.href)}>
+                      <button key={c.href} className={isOn(c.href) ? 'on' : ''} onClick={() => nav(c.href)}>
                         {c.label}{dotHrefs.has(c.href) && <small className="nd">●</small>}
                       </button>
                     ))}
@@ -366,7 +379,7 @@ export function TopBar() {
               <div className="cp-grp" key={item.label}>
                 <div className="cp-cap">{item.label}</div>
                 {item.children.map(c => (
-                  <button key={c.href} onClick={() => { setCatOpen(false); nav(c.href); }}>
+                  <button key={c.href} className={isOn(c.href) ? 'on' : ''} onClick={() => { setCatOpen(false); nav(c.href); }}>
                     {c.label}{dotHrefs.has(c.href) && <small className="nd">●</small>}
                   </button>
                 ))}
