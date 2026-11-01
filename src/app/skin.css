@@ -14,7 +14,7 @@
   /* 제목용 세리프 자리도 스킨에서는 같은 산세리프 (환경설정에서 역할 폰트를 따로 지정하면 그게 우선) */
   --serif-base:var(--sans-base);
   --side-w:220px;
-  --wrap-w:1000px;
+  --wrap-w:800px;   /* 본문 기둥 폭 (1000 → 800, v2.1 사용자 요청) */
   --primary:#e3d4c7;
   --primary-ink:#b89c84;   /* 베이지는 글씨로 쓰기엔 옅어서 한 톤 진하게 */
   --wrap-sub:#fbfbfb;
@@ -64,14 +64,13 @@ html:not([data-scheme="custom"]) body::after{
     flex-direction:column;align-items:stretch;gap:0;
     padding:30px 22px 28px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;
     background:var(--top-bg);backdrop-filter:none;
-    border-bottom:0;border-left:1px solid var(--line);
+    border:0;   /* 사이드바·본문 사이 구분선 없음 (v2.1 사용자 요청) */
   }
   .topbar::-webkit-scrollbar{display:none}
 
   #appMain{
     flex:0 1 var(--wrap-w);min-width:0;
     background:var(--panel-solid);
-    border-left:1px solid var(--line);border-right:1px solid var(--line);
   }
   .page{padding-left:40px;padding-right:40px}
   /* 환경설정 — 컨트롤 정렬 때문에 최소폭이 있는 화면이라 기둥을 넓히고 좌측 탭·여백을 줄여
