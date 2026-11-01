@@ -1,11 +1,12 @@
 'use client';
 // 게시판·방명록 타입 + 공용 목록 저장소 훅
 // v2.0: 서버(Supabase) 연결이 있으면 DB, 없으면 localStorage — 화면 코드는 동일하다.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PostMode } from './sanitize';
 import { isServerMode } from './supabase';
 import { TABLE_OF, fetchList, syncList, subscribeTable } from './db';
 import { currentUserId } from './currentUser';
+import { backend } from './backend';
 
 /** 목록 저장 실패 알림 (v2.0) — 조용히 되돌리면 "쓴 게 바로 지워진다"로만 보여 원인을 알 수 없다.
  *  ListSync가 받아 화면에 띄운다 (설정 저장 실패 알림과 같은 방식) */
@@ -96,87 +97,167 @@ export const BOARD_CATEGORIES = ['잡담', '설정', '합작', '기타'];
 
 export const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
+/* ---------- 서버 목록 공유 캐시 (v2.1) ----------
+   예전엔 useLocalList를 부르는 곳마다 따로 목록 전체를 읽고 따로 구독했다. 캐릭터 목록은 16곳,
+   자관은 17곳에서 불러서 한 화면에 위젯 몇 개만 떠도 같은 컬렉션을 여러 번 통째로 읽었고,
+   글 하나가 바뀌면 그 수만큼 또 전체를 읽었다 (Firestore는 읽은 문서 수가 곧 요금·무료 한도다).
+   이제 테이블마다 구독 하나를 모든 화면이 나눠 쓴다. 화면을 떠나도 잠시(LINGER) 살려 둬서
+   메뉴를 오가면 다시 읽지 않고 바로 그린다. */
+type Shared = { rows: unknown[]; loaded: boolean };
+type Entry = {
+  snap: Shared;
+  subs: Set<() => void>;
+  stop?: () => void;          // 구독 끄기 (지금 돌고 있으면)
+  restart?: () => void;       // 로그인 상태가 바뀌었을 때 다시 시작
+  reload?: () => void;        // 저장 실패 후 서버 값으로 되돌리기 (재조회 방식에서만)
+  req: number;                // 재조회 순번 (재조회 방식) — 낡은 결과가 최신 화면을 덮지 않게
+  linger?: ReturnType<typeof setTimeout>;
+};
+const EMPTY: Shared = { rows: [], loaded: false };
+const LINGER_MS = 60_000;
+const tables = new Map<string, Entry>();
+
+const notify = (e: Entry, snap: Shared) => { e.snap = snap; e.subs.forEach(fn => fn()); };
+
+/* 로그인 계정이 바뀌면 볼 수 있는 글이 달라진다(공개분/회원분/내 글) — 돌고 있는 구독을 모두 다시 시작.
+   인증 구독은 앱 전체에 하나만 (테이블마다 걸면 바뀔 때마다 프로필을 그만큼 읽는다) */
+let authOff: (() => void) | null = null;
+let authUid: string | null | undefined;
+function ensureAuthWatch() {
+  const be = backend();
+  if (authOff || !be) return;
+  authOff = be.onAuthChange(u => {
+    const id = u?.id ?? null;
+    if (authUid === undefined) { authUid = id; return; }   // 처음 알려 주는 현재 상태 — 이미 그 상태로 읽고 있다
+    if (id === authUid) return;
+    authUid = id;
+    tables.forEach(e => e.restart?.());
+  });
+}
+
+function startEntry(table: string, e: Entry) {
+  const be = backend();
+  if (!be) return;
+  let stopWatch: (() => void) | undefined;
+  let gen = 0;
+  const run = () => {
+    stopWatch?.();
+    const my = ++gen;
+    if (be.watchList) {
+      // 실시간 목록 — 스냅샷이 곧 목록 (Firebase)
+      stopWatch = be.watchList(table,
+        rows => { if (my === gen) notify(e, { rows, loaded: true }); },
+        () => { if (my === gen && !e.snap.loaded) notify(e, { rows: e.snap.rows, loaded: true }); });
+      return;
+    }
+    // 재조회 방식 (Supabase) — 바뀌었다는 신호가 오면 전체를 다시 읽는다. 겹친 요청은 마지막 것만
+    const load = () => {
+      const id = ++e.req;
+      fetchList(table)
+        .then(rows => { if (my === gen && id === e.req) notify(e, { rows, loaded: true }); })
+        .catch(() => { if (my === gen && !e.snap.loaded) notify(e, { rows: e.snap.rows, loaded: true }); });
+    };
+    e.reload = load;
+    load();
+    stopWatch = subscribeTable(table, load);
+  };
+  run();
+  e.restart = run;
+  e.stop = () => { gen++; stopWatch?.(); stopWatch = undefined; e.stop = undefined; e.restart = undefined; e.reload = undefined; };
+  ensureAuthWatch();
+}
+
+function acquire(table: string, fn: () => void): () => void {
+  let e = tables.get(table);
+  if (!e) { e = { snap: EMPTY, subs: new Set(), req: 0 }; tables.set(table, e); }
+  const entry = e;
+  if (entry.linger) { clearTimeout(entry.linger); entry.linger = undefined; }
+  entry.subs.add(fn);
+  if (!entry.stop) startEntry(table, entry);
+  return () => {
+    entry.subs.delete(fn);
+    if (entry.subs.size) return;
+    entry.linger = setTimeout(() => {
+      if (entry.subs.size) return;
+      entry.stop?.();
+      tables.delete(table);
+    }, LINGER_MS);
+  };
+}
+
+const noopSub = () => () => { /* 로컬 모드 */ };
+const emptySnap = () => EMPTY;
+
 /** 목록 저장소 훅 — 서버 모드면 DB, 아니면 localStorage (v2.0)
  *
  *  화면 코드는 예전 그대로 `[목록, 통째로 저장, 로드완료]`를 쓴다.
  *  서버 모드에서는 저장할 때 이전/새 배열을 비교해 바뀐 행만 insert/update/delete 하고,
- *  다른 사람의 변경은 실시간 구독으로 받아 온다. (로컬 모드는 storage 이벤트로 탭 간 동기화)
+ *  다른 사람의 변경은 실시간 구독으로 받아 온다 — 구독과 목록은 같은 테이블을 쓰는 모든 화면이 공유한다(v2.1).
+ *  (로컬 모드는 storage 이벤트로 탭 간 동기화)
  */
 export function useLocalList<T extends { id?: string }>(key: string, seed: T[]): [T[], (next: T[]) => void, boolean] {
   const server = isServerMode() && !!TABLE_OF[key];
   const table = TABLE_OF[key];
-  // 서버 모드에선 시드를 화면에 내보내지 않는다 (v2.0 사용자 발견) — 서버 목록을 받아오기 전까지
-  // 예시 데이터가 잠깐 보였다 사라지는 깜빡임의 원인이었다. 시드는 로컬 모드의 시작값일 뿐이고,
-  // 서버 모드에서 시드를 기준으로 삼으면 저장할 때 없는 행을 지우려 드는 문제도 있었다.
-  const [list, setList] = useState<T[]>(() => (server ? [] : seed));
-  const [loaded, setLoaded] = useState(false);
-  const latest = useRef<T[]>(list);          // diff 기준이 되는 "DB에 있다고 아는" 상태
-  latest.current = list;
-  // 순번 — 서버 fetch가 여러 건 동시에 떠 있을 때, 늦게 시작한 것보다 먼저 도착한 낡은 결과가
-  // 화면을 덮어쓰지 않게 한다 (v2.0 사용자 발견 — "휴지통에 방금 넣은 게 새로고침해야 보임").
-  // 원인: 실시간 구독이 같은 변경에 두 번(로컬 반영 1회 · 서버 확정 1회) 반응해 fetch가 겹치면
-  // 나중에 시작했지만 먼저 끝난 요청이 있고, 그보다 늦게 끝나는 "시작은 먼저였던" 요청이 결과를
-  // 되돌려써 버릴 수 있다. 낙관적 갱신(update) 시점에도 순번을 올려 그 전에 나간 fetch는 전부
-  // 낡은 것으로 취급 — 막 반영한 내 변경을 이전 결과가 지우지 못하게 한다.
-  const reqId = useRef(0);
 
+  /* 서버 모드 — 공유 캐시를 구독한다.
+     시드는 화면에 내보내지 않는다 (v2.0 사용자 발견) — 서버 목록을 받아오기 전까지 예시 데이터가
+     잠깐 보였다 사라지는 깜빡임의 원인이었고, 시드를 기준으로 저장하면 없는 행을 지우려 들었다 */
+  const sub = useCallback((fn: () => void) => acquire(table, fn), [table]);
+  const getSnap = useCallback(() => tables.get(table)?.snap ?? EMPTY, [table]);
+  const shared = useSyncExternalStore(server ? sub : noopSub, server ? getSnap : emptySnap, emptySnap);
+
+  // 로컬 모드 — localStorage
+  const [local, setLocal] = useState<T[]>(() => (server ? [] : seed));
+  const [localLoaded, setLocalLoaded] = useState(false);
+  const localRef = useRef<T[]>(local);
+  localRef.current = local;
   useEffect(() => {
-    let alive = true;
-    if (server) {
-      const load = () => {
-        const id = ++reqId.current;
-        fetchList<T & { id: string }>(table)
-          .then(rows => {
-            if (!alive || id !== reqId.current) return;   // 그 사이 더 최신 요청이 있었으면 버림
-            setList(rows); latest.current = rows; setLoaded(true);
-          })
-          .catch(() => { if (alive) setLoaded(true); });
-      };
-      load();
-      const off = subscribeTable(table, load);   // 다른 사람이 쓰면 바로 반영
-      return () => { alive = false; off(); };
-    }
+    if (server) return;
     try {
       const raw = localStorage.getItem(key);
-      if (raw) setList(JSON.parse(raw));
+      if (raw) setLocal(JSON.parse(raw));
     } catch { /* 시드 유지 */ }
-    setLoaded(true);
+    setLocalLoaded(true);
     const onStorage = (e: StorageEvent) => {
       if (e.key !== key || e.newValue == null) return;
-      try { setList(JSON.parse(e.newValue)); } catch { /* 무시 */ }
+      try { setLocal(JSON.parse(e.newValue)); } catch { /* 무시 */ }
     };
     window.addEventListener('storage', onStorage);
-    return () => { alive = false; window.removeEventListener('storage', onStorage); };
-  }, [key, server, table]);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [key, server]);
 
   const update = useCallback((next: T[]) => {
-    const prev = latest.current;
-    // 이 시점 이전에 나간 fetch는 전부 낡은 것으로 표시 — 뒤늦게 도착해도 이 낙관적 갱신을 덮지 않는다
-    const id = ++reqId.current;
-    setList(next);            // 낙관적 반영 — 화면은 즉시 바뀐다
-    latest.current = next;
-    if (server) {
-      syncList(table, prev as unknown as { id: string }[], next as unknown as { id: string }[], currentUserId())
-        .catch(err => {
-          // 실패하면 서버 상태로 되돌려 화면과 DB가 어긋난 채로 남지 않게 —
-          // 되돌리기만 하면 "방금 쓴 게 스스로 사라지는" 것처럼 보이므로 이유도 함께 알린다 (v2.0)
-          console.error('[ohome] 저장 실패', err);
-          try {
-            window.dispatchEvent(new CustomEvent(LIST_ERR_EVT, {
-              detail: { table, message: err instanceof Error ? err.message : String(err) },
-            }));
-          } catch { /* 무시 */ }
-          reqId.current = id;   // 이 복구 fetch는 유효한 최신 요청으로 인정
-          fetchList<T & { id: string }>(table)
-            .then(rows => { if (id === reqId.current) { setList(rows); latest.current = rows; } })
-            .catch(() => { /* 무시 */ });
-        });
+    if (!server) {
+      localRef.current = next;
+      setLocal(next);
+      try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* 무시 */ }
       return;
     }
-    try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* 무시 */ }
+    const e = tables.get(table);
+    // diff 기준 = 「DB에 있다고 아는」 상태 — 공유 캐시의 지금 목록
+    const prev = (e?.snap.rows ?? []) as { id: string }[];
+    if (e) {
+      e.req++;   // 이 시점 이전에 나간 재조회는 낡은 것 — 뒤늦게 도착해도 이 낙관적 갱신을 덮지 않는다
+      notify(e, { rows: next, loaded: true });   // 낙관적 반영 — 같은 목록을 보는 모든 화면이 즉시 바뀐다
+    }
+    syncList(table, prev, next as unknown as { id: string }[], currentUserId())
+      .catch(err => {
+        // 실패하면 서버 상태로 되돌려 화면과 DB가 어긋난 채로 남지 않게 —
+        // 되돌리기만 하면 "방금 쓴 게 스스로 사라지는" 것처럼 보이므로 이유도 함께 알린다 (v2.0).
+        // 실시간 목록은 거부된 쓰기를 SDK가 스스로 되돌려 다시 보내 준다. 재조회 방식만 직접 다시 읽는다
+        console.error('[ohome] 저장 실패', err);
+        try {
+          window.dispatchEvent(new CustomEvent(LIST_ERR_EVT, {
+            detail: { table, message: err instanceof Error ? err.message : String(err) },
+          }));
+        } catch { /* 무시 */ }
+        tables.get(table)?.reload?.();
+      });
   }, [key, server, table]);
 
-  return [list, update, loaded];
+  return server
+    ? [shared.rows as T[], update, shared.loaded]
+    : [local, update, localLoaded];
 }
 
 /* ---------- 시드 (데모) ---------- */

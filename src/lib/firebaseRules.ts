@@ -76,7 +76,16 @@ service cloud.firestore {
       // 쓰기: 로그인 회원 — 방명록·댓글은 비로그인 방문자도 남길 수 있음(닉네임+비밀번호 방식)
       // notifications: 손님 댓글·방명록이 관리자에게 알림을 남길 수 있어야 한다 (v2.0) —
       // 행 주인(authorId)은 받는 사람이라 읽기·수정·삭제는 받는 사람·관리자만 (아래 공통 규칙)
-      allow create: if isContent(coll) && (signedIn() || coll in ['guestbook', 'comments', 'notifications']);
+      // (v2.1) 만들 때 **남의 이름으로 쓸 수 없다** — authorId는 나 자신(로그인), 비움(손님 방명록·댓글),
+      // 받는 사람(알림)만. 관리자는 백업 복원·이전 때 원래 작성자를 그대로 옮겨야 해서 예외.
+      // 앱이 쓰는 칸 외의 필드는 받지 않고, 공개 범위도 세 값 중 하나만.
+      allow create: if isContent(coll)
+        && request.resource.data.keys().hasOnly(['data', 'authorId', 'visibility', 'editorIds', 'sort', 'updatedAt'])
+        && request.resource.data.visibility in ['public', 'member', 'private']
+        && (isAdmin()
+            || (signedIn() && request.resource.data.authorId == request.auth.uid)
+            || (coll in ['guestbook', 'comments'] && request.resource.data.authorId == null)
+            || coll == 'notifications');
 
       // 수정·삭제: 작성자 본인 · 편집 권한을 받은 회원 · 관리자
       // 댓글은 글과 따로 저장되므로(v2.0) 댓글을 달 때 글을 수정할 필요가 없다 —

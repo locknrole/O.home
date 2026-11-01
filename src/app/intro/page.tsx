@@ -14,12 +14,15 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useIntro } from '@/lib/introStore';
-import { RichEditor } from '@/components/ui/RichEditor';
+import dynamic from 'next/dynamic';
 import { HtmlBody } from '@/components/ui/HtmlBody';
 import { KTextarea } from '@/components/ui/Kit';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { PageTitle, EditableDesc } from '@/components/ui/PageText';
 import { useToast } from '@/components/ui/Toast';
+
+// 에디터(tiptap)는 관리자가 편집을 누를 때만 받는다 (v2.1) — 방문자는 읽기만 하는데 매번 함께 받았다
+const RichEditor = dynamic(() => import('@/components/ui/RichEditor').then(m => m.RichEditor), { ssr: false });
 
 /** 에디터가 다루지 못해 사라질 만한 태그·속성이 들어 있는가 (경고 판단용) */
 const hasRichHtml = (html: string) =>
