@@ -10,6 +10,7 @@
  */
 import React, { useMemo, useRef, useState } from 'react';
 import { Lightbox } from '@/components/ui/Lightbox';
+import { useToast } from '@/components/ui/Toast';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 export function HtmlBody({ html, className, style }: {
@@ -19,17 +20,32 @@ export function HtmlBody({ html, className, style }: {
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [lb, setLb] = useState<{ srcs: string[]; i: number } | null>(null);
+  const toast = useToast();
   /* **여기서 한 번 더 걸러 낸다** (v2.0) — 예전에는 받은 HTML을 그대로 심어서,
      부르는 쪽이 정화를 잊으면 그대로 새어 들어갔다(인트로 페이지에서 실제로 그랬다).
      이미 걸러 온 것을 다시 걸러도 결과는 같으므로, 안전은 여기서 보장한다. */
   const safe = useMemo(() => sanitizeHtml(html), [html]);
 
   const onClick = (e: React.MouseEvent) => {
+    /* 내 홈 배너 — id="banner-copy"인 요소를 누르면 data-code를 복사한다 (v2.1 사용자 요청).
+       본문에 붙인 onclick은 정화 단계에서 지워지므로, 스크립트 없이 여기서 대신 처리한다.
+       id로 하나만 고르는 건 다른 이미지까지 복사로 바뀌지 않게 하려는 것 */
+    const copyEl = (e.target as HTMLElement).closest<HTMLElement>('#banner-copy');
+    if (copyEl && ref.current?.contains(copyEl)) {
+      e.preventDefault();
+      const code = copyEl.dataset.code ?? '';
+      if (!code) return;
+      navigator.clipboard.writeText(code)
+        .then(() => toast('배너 코드를 복사했습니다'))
+        .catch(() => toast('복사하지 못했습니다'));
+      return;
+    }
     const img = (e.target as HTMLElement).closest('img');
     if (!img || !ref.current?.contains(img)) return;
     // 링크로 감싼 이미지는 그 링크가 할 일이 따로 있다 — 가로채지 않는다
     if (img.closest('a')) return;
-    const all = [...ref.current.querySelectorAll('img')];
+    // 복사용 배너는 넘겨 보기 목록에서도 뺀다
+    const all = [...ref.current.querySelectorAll('img')].filter(x => !x.closest('#banner-copy'));
     const srcs = all.map(x => x.getAttribute('src') ?? '').filter(Boolean);
     const i = all.indexOf(img as HTMLImageElement);
     if (i < 0 || !srcs.length) return;
