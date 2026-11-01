@@ -145,6 +145,8 @@ export const COLLECTION_OF: Record<string, string> = {
   'ohome.ssulimp.v1': 'ssul_imports',
   // 썰 즐겨찾기 — 회원마다 한 문서(나만보기). 남의 즐겨찾기는 서버가 내주지 않는다
   'ohome.ssulfav.v1': 'ssul_favs',
+  // 인용구 모음 (v2.1 사용자 요청) — 카드 한 장 = 한 문서. 댓글은 comments 컬렉션(target 'quote')
+  'ohome.quotes.v1': 'quotes',
 };
 
 export const CONTENT_COLLECTIONS = Object.values(COLLECTION_OF);

@@ -351,3 +351,72 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
 
 /* 상세 페이지 「‹ LIST」 — 버튼 줄이 화면 폭을 다 쓰는 모바일에선 왼쪽 끝에 붙이고 나머지는 오른쪽 (v2.0 사용자 요청) */
 .head-actions .btn-list{margin-right:auto}
+
+/* ==========================================================
+   인용구 모음 (app/quotes/page.tsx, v2.1 사용자 요청) — 카드 세 줄.
+   UFO를 누르면 빛줄기(.qt-scan)가 카드를 위→아래로 훑고, 지나간 자리부터 글이 뒷면으로 바뀐다.
+   카드 크기는 앞면이 정한다 — 뒷면은 같은 자리에 겹쳐 두고 넘치면 안에서 스크롤
+   ========================================================== */
+.qt-pager{display:flex;justify-content:center;gap:4px;margin:0 0 22px}
+.qt-pager button{min-width:22px;height:28px;padding:0 6px;font-size:calc(12px*var(--fs,1));color:var(--sub);transition:.15s}
+.qt-pager button:hover{color:var(--primary-ink)}
+.qt-pager button.on{background:var(--primary);color:#fff;font-weight:700}
+html[data-scheme="dark"] .qt-pager button.on{color:#1d1e20}
+.qt-grid{display:flex;gap:18px;align-items:flex-start}
+.qt-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:22px}
+
+.qt-card header{display:flex;align-items:center;justify-content:space-between;padding:0 6px 6px 10px}
+.qt-card header b{font-size:calc(13.5px*var(--fs,1));font-weight:700;color:var(--primary-ink);transition:opacity .3s}
+.qt-card.qt-toBack header b{opacity:.45}
+.qt-ufo{position:relative;width:30px;height:26px;display:grid;place-items:center;color:var(--primary-ink)}
+.qt-ufo:hover{animation:ufoHover 1.6s ease-in-out infinite}   /* 평소엔 가만히, 커서를 올렸을 때만 둥둥 (v2.1 사용자 요청) */
+.qt-ufo svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.qt-ufo sup{position:absolute;top:-3px;right:-2px;font-size:8px;color:var(--accent)}
+/* UFO 아래로 내려오는 빛 — 뒷면을 보는 동안 켜져 있다 */
+.qt-ufo::after{content:"";position:absolute;left:50%;top:19px;width:22px;height:0;transform:translateX(-50%);pointer-events:none;
+  background:linear-gradient(to bottom,color-mix(in srgb,var(--primary) 85%,transparent),transparent);
+  clip-path:polygon(38% 0,62% 0,100% 100%,0 100%);transition:height .35s}
+.qt-ufo[aria-pressed="true"]::after{height:14px}
+
+.qt-body{position:relative;overflow:hidden;min-height:170px;background:var(--panel-solid);border:1px solid var(--line);transition:border-color .4s}
+.qt-card.qt-toBack .qt-body{border-color:var(--primary)}
+.qt-face{padding:16px 15px 12px}
+.qt-back{position:absolute;inset:0;overflow-y:auto;scrollbar-width:thin;clip-path:inset(0 0 100% 0)}
+.qt-text{font-size:calc(13px*var(--fs,1));line-height:1.8;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;color:var(--ink)}
+.qt-date{display:block;margin-top:14px;text-align:right;font-size:calc(10.5px*var(--fs,1));color:var(--faint)}
+
+/* 바뀌는 방향은 늘 위→아래: 들어오는 면은 위부터 드러나고, 나가는 면은 위부터 지워진다 */
+@keyframes qtIn{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes qtOut{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(100% 0 0 0)}}
+.qt-toBack .qt-front{animation:qtOut .75s cubic-bezier(.45,0,.3,1) both}
+.qt-toBack .qt-back{animation:qtIn .75s cubic-bezier(.45,0,.3,1) both}
+.qt-toFront .qt-front{animation:qtIn .75s cubic-bezier(.45,0,.3,1) both}
+.qt-toFront .qt-back{animation:qtOut .75s cubic-bezier(.45,0,.3,1) both}
+.qt-scan{position:absolute;left:0;right:0;top:0;height:8px;margin-top:-4px;pointer-events:none;z-index:3;   /* 가는 빛줄기 (v2.1 사용자 요청) — 1px 심 + 옅은 번짐 */
+  background:linear-gradient(to bottom,transparent,color-mix(in srgb,var(--primary) 35%,transparent) 40%,var(--primary) 44% 56%,color-mix(in srgb,var(--primary) 35%,transparent) 60%,transparent);
+  animation:qtScan .75s cubic-bezier(.45,0,.3,1) both}
+@keyframes qtScan{0%{top:0;opacity:0}12%{opacity:1}88%{opacity:1}100%{top:100%;opacity:0}}
+
+.qt-src{font-size:calc(13px*var(--fs,1));font-weight:600;color:var(--ink);margin-bottom:8px}
+.qt-memo{font-size:calc(12.5px*var(--fs,1));line-height:1.75;white-space:pre-wrap;color:var(--sub);margin-bottom:10px}
+.qt-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.qt-meta small{font-size:calc(10.5px*var(--fs,1));color:var(--faint)}
+.qt-meta button{font-size:calc(11px*var(--fs,1));color:var(--primary-ink);margin-left:8px}
+.qt-meta button:hover{text-decoration:underline}
+.qt-cmts .cmt{font-size:calc(12.5px*var(--fs,1));margin-bottom:10px}
+.qt-cmts .cmt p{color:var(--ink)}
+.qt-x{cursor:var(--cur-pointer,pointer);margin-left:8px}
+.qt-cin{display:flex;flex-direction:column;gap:6px}
+.qt-cin .ci-row{display:flex;gap:6px}
+.qt-cin .ci-row .k-input{flex:1;min-width:0}
+.qt-cin .btn-dark{background:var(--primary);color:#fff;white-space:nowrap}
+html[data-scheme="dark"] .qt-cin .btn-dark{color:#1d1e20}
+.qt-form{display:flex;flex-direction:column;gap:12px}
+.qt-form label{display:flex;flex-direction:column;gap:6px;font-size:calc(12px*var(--fs,1));color:var(--sub)}
+.qt-form label small{color:var(--faint)}
+@media (prefers-reduced-motion:reduce){
+  .qt-face,.qt-scan,.qt-ufo{animation-duration:.01s !important}
+}
+
+/* 메인의 메뉴리스트 위젯(모바일) — 메뉴 폰트 따라감 (v2.1 사용자 제보: 폰트 지정이 안 먹음) */
+.menu-list a{font-family:var(--font-menu,var(--sans));font-weight:var(--fw-menu,400)}

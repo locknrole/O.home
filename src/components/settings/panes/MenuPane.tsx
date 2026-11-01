@@ -300,6 +300,14 @@ export function MenuPane() {
         </>
       );
     }
+    if (href === '/quotes') {
+      return (
+        <>
+          {permSel('쓰기', ms.quoteUpload ?? 'member', v => patch({ quoteUpload: v }))}
+          {permSel('댓글', ms.quoteComment ?? 'guest', v => patch({ quoteComment: v }))}
+        </>
+      );
+    }
     // 갤러리 글쓰기 권한 (v2.0 사용자 요청) — 갤러리(섹션)마다 · 「글쓰기 멤버」로 특정 회원까지
     if (href === '/gallery' || href.startsWith('/gallery?s=')) {
       const key = href === '/gallery' ? MAIN_SEC : href.slice('/gallery?s='.length);
