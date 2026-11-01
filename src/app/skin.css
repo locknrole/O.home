@@ -14,7 +14,7 @@
   /* 제목용 세리프 자리도 스킨에서는 같은 산세리프 (환경설정에서 역할 폰트를 따로 지정하면 그게 우선) */
   --serif-base:var(--sans-base);
   --side-w:220px;
-  --wrap-w:1000px;
+  --wrap-w:800px;   /* 본문 기둥 폭 (1000 → 800, v2.1 사용자 요청) */
   --primary:#e3d4c7;
   --primary-ink:#b89c84;   /* 베이지는 글씨로 쓰기엔 옅어서 한 톤 진하게 */
   --wrap-sub:#fbfbfb;
@@ -36,22 +36,146 @@ html:not([data-scheme="custom"]) body{
   background:linear-gradient(var(--bg-angle,180deg),var(--bg-g1) 0%,var(--bg-g2) 100%);
   background-attachment:fixed;
 }
-html:not([data-scheme="custom"]) body::after{
-  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+/* ---------- 밤하늘 (components/shell/SkyLayer.tsx) — 바깥 여백의 별 + (다크) 별똥별 ----------
+   별은 네 장으로 나눠 그려 두고 장마다 박자·시작을 엇갈려 깜빡인다 (v2.1 사용자 제보: 한 장이라 전부 같이 깜빡였다).
+   그림은 한 번만 그리고 투명도만 움직이므로 GPU 합성으로 끝난다 — 별을 늘려도 매 프레임 다시 그리지 않는다.
+   별똥별도 위치·투명도만 움직인다. 가운데는 사이드바·본문 판이 덮어서 바깥 여백에만 보인다 */
+.sky{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+html[data-scheme="custom"] .sky{display:none}
+.sky-stars{position:absolute;inset:0;will-change:opacity;animation:skyTw var(--d) ease-in-out var(--dl) infinite}
+@keyframes skyTw{0%,100%{opacity:.3}50%{opacity:1}}
+.sky-stars.s1{--d:3.6s;--dl:0s;
   background-image:
-    radial-gradient(1.5px 1.5px at 6% 12%,var(--star) 50%,transparent 51%),
-    radial-gradient(1px 1px at 14% 38%,var(--star) 50%,transparent 51%),
-    radial-gradient(2px 2px at 9% 71%,var(--star) 50%,transparent 51%),
-    radial-gradient(1px 1px at 18% 88%,var(--star) 50%,transparent 51%),
-    radial-gradient(1.5px 1.5px at 3% 52%,var(--star) 50%,transparent 51%),
-    radial-gradient(1px 1px at 93% 9%,var(--star) 50%,transparent 51%),
-    radial-gradient(2px 2px at 88% 33%,var(--star) 50%,transparent 51%),
-    radial-gradient(1px 1px at 96% 58%,var(--star) 50%,transparent 51%),
-    radial-gradient(1.5px 1.5px at 85% 79%,var(--star) 50%,transparent 51%),
-    radial-gradient(1px 1px at 91% 94%,var(--star) 50%,transparent 51%);
-  animation:ufoTwinkle 5s ease-in-out infinite;
+    radial-gradient(1.5px 1.5px at 9.8% 55.9%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 88.3% 84.8%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 4.3% 51.2%,var(--star) 50%,transparent 51%)}
+.sky-stars.s2{--d:4.7s;--dl:-1.3s;
+  background-image:
+    radial-gradient(1.5px 1.5px at 13.1% 19.2%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 85.2% 9.9%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 13.5% 59.4%,var(--star) 50%,transparent 51%)}
+.sky-stars.s3{--d:5.9s;--dl:-3.1s;
+  background-image:
+    radial-gradient(2px 2px at 20.3% 65.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 92.3% 62.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 1.8% 4.5%,var(--star) 50%,transparent 51%)}
+.sky-stars.s4{--d:4.1s;--dl:-2.2s;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12.8% 77.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 88.0% 83.6%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 5.3% 29.8%,var(--star) 50%,transparent 51%)}
+/* 다크 — 훨씬 촘촘하게 */
+html[data-scheme="dark"] .sky-stars.s1{background-image:
+    radial-gradient(1px 1px at 14.1% 45.8%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 87.3% 55.0%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 2.2% 25.9%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 83.7% 29.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 12.0% 11.6%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 96.4% 38.9%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 17.9% 1.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 98.0% 6.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 20.6% 39.9%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 90.6% 20.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 6.0% 9.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 79.3% 41.2%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 3.3% 70.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 80.2% 79.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 14.5% 19.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 82.9% 72.7%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 9.1% 38.6%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 87.6% 21.9%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 18.2% 96.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 85.2% 87.7%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 4.3% 98.6%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 92.2% 10.8%,var(--star) 50%,transparent 51%)}
+html[data-scheme="dark"] .sky-stars.s2{background-image:
+    radial-gradient(2.5px 2.5px at 4.9% 26.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 91.5% 82.4%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 2.0% 9.8%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 92.1% 2.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 8.1% 45.4%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 88.9% 57.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 8.4% 62.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 97.6% 81.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 15.4% 16.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 98.3% 20.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 18.6% 60.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 80.0% 11.7%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 20.2% 24.4%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 87.0% 42.2%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 10.6% 52.0%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 99.0% 13.4%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 12.0% 84.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 80.5% 21.8%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 15.9% 7.8%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 88.1% 6.9%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 6.3% 53.0%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 80.9% 14.6%,var(--star) 50%,transparent 51%)}
+html[data-scheme="dark"] .sky-stars.s3{background-image:
+    radial-gradient(2px 2px at 20.6% 65.4%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 89.7% 93.8%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 1.2% 2.8%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 93.4% 95.4%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 12.8% 8.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 94.0% 32.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 2.0% 54.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 79.9% 92.8%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 14.9% 78.7%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 86.2% 68.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 18.4% 41.9%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 79.6% 50.0%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 13.3% 38.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 79.3% 8.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 13.6% 98.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 93.9% 39.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 14.7% 45.9%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 96.2% 9.2%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 11.0% 31.4%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 88.9% 23.6%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 2.8% 77.4%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 97.9% 26.1%,var(--star) 50%,transparent 51%)}
+html[data-scheme="dark"] .sky-stars.s4{background-image:
+    radial-gradient(1.5px 1.5px at 8.0% 15.0%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 83.2% 17.6%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 14.0% 44.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 85.7% 66.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 13.5% 79.8%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 97.7% 87.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 5.0% 91.2%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 81.8% 49.7%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 18.9% 5.0%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 98.5% 28.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 2.8% 47.2%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 96.0% 38.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 10.6% 31.9%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 96.3% 62.2%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 2.0% 4.1%,var(--star) 50%,transparent 51%),
+    radial-gradient(1px 1px at 91.5% 67.5%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 12.2% 31.3%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 90.6% 63.8%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 9.8% 3.4%,var(--star) 50%,transparent 51%),
+    radial-gradient(2.5px 2.5px at 84.5% 77.4%,var(--star) 50%,transparent 51%),
+    radial-gradient(1.5px 1.5px at 1.5% 62.7%,var(--star) 50%,transparent 51%),
+    radial-gradient(2px 2px at 81.2% 53.5%,var(--star) 50%,transparent 51%)}
+/* 별똥별 — 다크에서만. 모두 왼쪽 아래로, 머리(밝은 쪽)가 진행 방향을 향하게 기울이고, 지나간 뒤엔 다음 차례까지 숨어 있다 */
+.sky-shoot{display:none;position:absolute;width:var(--len,120px);height:1.5px;border-radius:2px;
+  background:linear-gradient(90deg,#fff,color-mix(in srgb,var(--star) 70%,transparent) 30%,transparent);
+  filter:drop-shadow(0 0 3px var(--star));transform-origin:left center;opacity:0;will-change:transform,opacity;
+  --rot:-36deg;   /* 전부 같은 방향(왼쪽 아래)으로 — 이동 거리는 dy ≈ 0.73 × dx로 맞춘다 (v2.1 사용자 요청) */
+  animation:skyShoot var(--d) linear var(--dl) infinite}
+html[data-scheme="dark"] .sky-shoot{display:block}
+@keyframes skyShoot{
+  0%{transform:translate(0,0) rotate(var(--rot));opacity:0}
+  1.5%{opacity:1}
+  9%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:0}
+  100%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:0}
 }
-@keyframes ufoTwinkle{0%,100%{opacity:.35}50%{opacity:.9}}
+.sky-shoot.k1{left:12%;top:5%;--dx:-190px;--dy:138px;--d:9s;--dl:1.5s;--len:120px}
+.sky-shoot.k2{left:96%;top:22%;--dx:-200px;--dy:145px;--d:12s;--dl:6s;--len:130px}
+.sky-shoot.k3{left:19%;top:40%;--dx:-170px;--dy:123px;--d:14s;--dl:9s;--len:100px}
+.sky-shoot.k4{left:88%;top:55%;--dx:-160px;--dy:116px;--d:11s;--dl:3.5s;--len:110px}
+.sky-shoot.k5{left:17%;top:68%;--dx:-150px;--dy:109px;--d:13s;--dl:11s;--len:90px}
+.sky-shoot.k6{left:99%;top:8%;--dx:-150px;--dy:109px;--d:10s;--dl:7.5s;--len:120px}
 
 /* ==========================================================
    셸 — 왼쪽 사이드바 + 가운데 본문 기둥 (PC)
@@ -64,19 +188,20 @@ html:not([data-scheme="custom"]) body::after{
     flex-direction:column;align-items:stretch;gap:0;
     padding:30px 22px 28px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;
     background:var(--top-bg);backdrop-filter:none;
-    border-bottom:0;border-left:1px solid var(--line);
+    border:0;   /* 사이드바·본문 사이 구분선 없음 (v2.1 사용자 요청) */
   }
   .topbar::-webkit-scrollbar{display:none}
 
   #appMain{
     flex:0 1 var(--wrap-w);min-width:0;
     background:var(--panel-solid);
-    border-left:1px solid var(--line);border-right:1px solid var(--line);
   }
   .page{padding-left:40px;padding-right:40px}
   /* 환경설정 — 컨트롤 정렬 때문에 최소폭이 있는 화면이라 기둥을 넓히고 좌측 탭·여백을 줄여
      1280px 화면에서도 잘리지 않게. 그보다 좁으면 globals.css의 가로 스크롤이 받는다 */
   #appMain:has(.settings-layout){flex-basis:1180px}
+  /* 자관·캐릭터 상세 — 여러 칸 배치라 기둥을 줄이기 전 폭(1000px) 그대로 (v2.1 사용자 요청) */
+  #appMain:has(.page-rel-detail),#appMain:has(.page-char-detail){flex-basis:1000px}
   .page:has(.settings-layout){padding-left:16px;padding-right:16px}
   .settings-layout{grid-template-columns:160px 1fr;min-width:1020px}
 
@@ -114,6 +239,7 @@ html:not([data-scheme="custom"]) body::after{
     color:color-mix(in srgb,var(--top-fg) 62%,transparent);background:none;
   }
   .grp .sub button:hover,.grp .sub a:hover{background:none;color:var(--top-hv)}
+  .grp .sub button.on{color:var(--top-hv);font-weight:600}   /* 지금 보는 하위 메뉴 — 상위 메뉴 .on과 같게 (v2.1) */
   .grp.more{display:none}
   /* ✦ — 마우스를 올린 메뉴·지금 메뉴 왼쪽 */
   .gnb button::before{
@@ -141,8 +267,11 @@ html[data-scheme="dark"] .g1-frame{background:#1b3327}   /* 다크 그림의 바
 .g1-frame img{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
 
 /* 로고 공통 */
-.brand{font-family:var(--font-logo,var(--sans));font-size:calc(15px*var(--fs,1));font-weight:700;letter-spacing:-.01em}
-.brand small{font-size:calc(9px*var(--fs,1));color:color-mix(in srgb,var(--top-fg) 55%,transparent)}
+.brand{font-family:var(--serif);   /* 로고 = 환경설정 > 폰트의 「타이틀」 (v2.1 — 없는 --font-logo를 보고 있어 지정이 안 먹었다) */
+  --fs:var(--fs-title,1);   /* 크기·굵기도 「타이틀」을 따른다 (v2.1 사용자 제보 — 환경설정에서 크기를 바꿔도 그대로였다) */
+  font-size:calc(15px*var(--fs,1));font-weight:var(--fw-title,700);letter-spacing:-.01em}
+.brand small{--fs:var(--fs-logosub,1);   /* 아랫줄은 「로고 서브타이틀」 크기 — 위의 타이틀 배율을 물려받지 않게 */
+  font-size:calc(9px*var(--fs,1));color:color-mix(in srgb,var(--top-fg) 55%,transparent)}
 .brand:empty{display:none}   /* 제목·소제목을 둘 다 숨기면 빈 칸이 여백으로 남지 않게 */
 .brand-row{display:inline-flex;align-items:center;gap:8px}
 .brand-ico{display:inline-grid;width:20px;height:20px;flex:0 0 20px;color:var(--primary-ink);animation:ufoHover 3s ease-in-out infinite}
@@ -201,7 +330,8 @@ html[data-scheme="dark"] .brand-ico .alien{opacity:1;transform:none}
     background:var(--dd-bg);color:var(--dd-fg);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-dd);
     animation:fade .15s;
   }
-  .cat-pop button{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font-size:calc(13.5px*var(--fs,1));color:inherit}
+  .cat-pop button{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font-size:calc(13.5px*var(--fs,1));color:inherit;
+    font-family:var(--font-menu,var(--sans));font-weight:var(--fw-menu,400)}   /* 모바일 카테고리 목록도 메뉴 폰트 (v2.1) */
   .cat-pop button:hover,.cat-pop button.on{background:var(--hover)}
   .cat-pop .cp-grp + .cp-grp,.cat-pop .cp-grp + button,.cat-pop button + .cp-grp{border-top:1px solid var(--line);margin-top:4px;padding-top:4px}
   .cat-pop .cp-cap{padding:8px 12px 2px;font-size:calc(10.5px*var(--fs,1));font-weight:700;letter-spacing:.06em;color:color-mix(in srgb,var(--dd-fg) 55%,transparent)}
@@ -312,7 +442,8 @@ html[data-scheme="light"] .main-grid.gridlines{
 html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *::after{transition:none !important}
 
 @media (prefers-reduced-motion:reduce){
-  body::after,.brand-ico{animation:none !important}
+  .sky-stars,.brand-ico{animation:none !important}
+  .sky-shoot{display:none !important}   /* 별똥별 끔 */
 }
 
 /* 갤러리 자관 필터 드롭다운 — 옆 검색칸(35px)과 높이를 맞춘다 (gallery/page.tsx .rel-select) */
@@ -338,6 +469,23 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
   .page-rel-detail > .au-list::-webkit-scrollbar{display:none}
   .page-rel-detail > .au-list .au-item{flex-shrink:0}
 }
+/* 자관 상세 — 소개 카드 320 → 290, 남는 폭은 가운데 그림으로 (v2.1 사용자 요청). 960px 이하는 globals.css의 세로 쌓기 그대로 */
+@media (min-width:961px){
+  .rel-body{grid-template-columns:290px 1fr 290px}
+  /* 소개 카드 높이 = 가운데 그림 높이 (v2.1 사용자 요청) — 줄 높이만큼 늘이되, 그림 아래 ‹ 점 › 줄(10+26px)만큼은 빼서 그림 아래 끝에 맞춘다 */
+  .rel-body > .mini-prof{align-self:stretch}
+  .rel-body:has(.art-nav) > .mini-prof{margin-bottom:36px}
+  /* 컬러 팔레트 마름모는 카드 맨 아래에 (v2.1 사용자 요청) — 키워드 줄보다도 아래, 늘어난 빈칸은 그 위로 */
+  .rel-body > .mini-prof{display:flex;flex-direction:column}
+  .rel-body > .mini-prof > .palette-row{order:9;margin-top:auto;padding-top:11px;padding-bottom:14px}
+}
+/* TRPG 로그 — 자관 필터를 오른쪽 사이드에서 목록 위 가로 한 줄로 (v2.1 사용자 요청). 보기(티켓형/기본형)는 같은 줄 오른쪽 끝 */
+.trpg-layout.filter-top{grid-template-columns:1fr}
+.filter-top > .tagside{order:-1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:10px 14px}
+.filter-top > .tagside h4{margin:0 6px 0 0}
+.filter-top > .tagside h4:not(:first-child){margin:0 4px 0 auto !important}
+.filter-top > .tagside .tag{gap:6px;padding:5px 10px}
+.filter-top > .tagside > div[style]{width:6px;height:auto !important}   /* 보기 라디오 사이 세로 간격 칸 → 가로 간격 */
 /* 폰 폭에선 아래 연동 칸(백업·로그, 역극·trpg)을 한 줄에 하나씩 — 두 칸이면 제목이 줄바꿈될 만큼 좁다 */
 @media (max-width:620px){
   .page-rel-detail .g2{grid-template-columns:1fr}
@@ -351,3 +499,72 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
 
 /* 상세 페이지 「‹ LIST」 — 버튼 줄이 화면 폭을 다 쓰는 모바일에선 왼쪽 끝에 붙이고 나머지는 오른쪽 (v2.0 사용자 요청) */
 .head-actions .btn-list{margin-right:auto}
+
+/* ==========================================================
+   인용구 모음 (app/quotes/page.tsx, v2.1 사용자 요청) — 카드 세 줄.
+   UFO를 누르면 빛줄기(.qt-scan)가 카드를 위→아래로 훑고, 지나간 자리부터 글이 뒷면으로 바뀐다.
+   카드 크기는 앞면이 정한다 — 뒷면은 같은 자리에 겹쳐 두고 넘치면 안에서 스크롤
+   ========================================================== */
+.qt-pager{display:flex;justify-content:center;gap:4px;margin:0 0 22px}
+.qt-pager button{min-width:22px;height:28px;padding:0 6px;font-size:calc(12px*var(--fs,1));color:var(--sub);transition:.15s}
+.qt-pager button:hover{color:var(--primary-ink)}
+.qt-pager button.on{background:var(--primary);color:#fff;font-weight:700}
+html[data-scheme="dark"] .qt-pager button.on{color:#1d1e20}
+.qt-grid{display:flex;gap:18px;align-items:flex-start}
+.qt-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:22px}
+
+.qt-card header{display:flex;align-items:center;justify-content:space-between;padding:0 6px 6px 10px}
+.qt-card header b{font-size:calc(13.5px*var(--fs,1));font-weight:700;color:var(--primary-ink);transition:opacity .3s}
+.qt-card.qt-toBack header b{opacity:.45}
+.qt-ufo{position:relative;width:30px;height:26px;display:grid;place-items:center;color:var(--primary-ink)}
+.qt-ufo:hover{animation:ufoHover 1.6s ease-in-out infinite}   /* 평소엔 가만히, 커서를 올렸을 때만 둥둥 (v2.1 사용자 요청) */
+.qt-ufo svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.qt-ufo sup{position:absolute;top:-3px;right:-2px;font-size:8px;color:var(--accent)}
+/* UFO 아래로 내려오는 빛 — 뒷면을 보는 동안 켜져 있다 */
+.qt-ufo::after{content:"";position:absolute;left:50%;top:19px;width:22px;height:0;transform:translateX(-50%);pointer-events:none;
+  background:linear-gradient(to bottom,color-mix(in srgb,var(--primary) 85%,transparent),transparent);
+  clip-path:polygon(38% 0,62% 0,100% 100%,0 100%);transition:height .35s}
+.qt-ufo[aria-pressed="true"]::after{height:14px}
+
+.qt-body{position:relative;overflow:hidden;min-height:170px;background:var(--panel-solid);border:1px solid var(--line);transition:border-color .4s}
+.qt-card.qt-toBack .qt-body{border-color:var(--primary)}
+.qt-face{padding:16px 15px 12px}
+.qt-back{position:absolute;inset:0;overflow-y:auto;scrollbar-width:thin;clip-path:inset(0 0 100% 0)}
+.qt-text{font-size:calc(13px*var(--fs,1));line-height:1.8;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;color:var(--ink)}
+.qt-date{display:block;margin-top:14px;text-align:right;font-size:calc(10.5px*var(--fs,1));color:var(--faint)}
+
+/* 바뀌는 방향은 늘 위→아래: 들어오는 면은 위부터 드러나고, 나가는 면은 위부터 지워진다 */
+@keyframes qtIn{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes qtOut{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(100% 0 0 0)}}
+.qt-toBack .qt-front{animation:qtOut .75s cubic-bezier(.45,0,.3,1) both}
+.qt-toBack .qt-back{animation:qtIn .75s cubic-bezier(.45,0,.3,1) both}
+.qt-toFront .qt-front{animation:qtIn .75s cubic-bezier(.45,0,.3,1) both}
+.qt-toFront .qt-back{animation:qtOut .75s cubic-bezier(.45,0,.3,1) both}
+.qt-scan{position:absolute;left:0;right:0;top:0;height:8px;margin-top:-4px;pointer-events:none;z-index:3;   /* 가는 빛줄기 (v2.1 사용자 요청) — 1px 심 + 옅은 번짐 */
+  background:linear-gradient(to bottom,transparent,color-mix(in srgb,var(--primary) 35%,transparent) 40%,var(--primary) 44% 56%,color-mix(in srgb,var(--primary) 35%,transparent) 60%,transparent);
+  animation:qtScan .75s cubic-bezier(.45,0,.3,1) both}
+@keyframes qtScan{0%{top:0;opacity:0}12%{opacity:1}88%{opacity:1}100%{top:100%;opacity:0}}
+
+.qt-src{font-size:calc(13px*var(--fs,1));font-weight:600;color:var(--ink);margin-bottom:8px}
+.qt-memo{font-size:calc(12.5px*var(--fs,1));line-height:1.75;white-space:pre-wrap;color:var(--sub);margin-bottom:10px}
+.qt-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.qt-meta small{font-size:calc(10.5px*var(--fs,1));color:var(--faint)}
+.qt-meta button{font-size:calc(11px*var(--fs,1));color:var(--primary-ink);margin-left:8px}
+.qt-meta button:hover{text-decoration:underline}
+.qt-cmts .cmt{font-size:calc(12.5px*var(--fs,1));margin-bottom:10px}
+.qt-cmts .cmt p{color:var(--ink)}
+.qt-x{cursor:var(--cur-pointer,pointer);margin-left:8px}
+.qt-cin{display:flex;flex-direction:column;gap:6px}
+.qt-cin .ci-row{display:flex;gap:6px}
+.qt-cin .ci-row .k-input{flex:1;min-width:0}
+.qt-cin .btn-dark{background:var(--primary);color:#fff;white-space:nowrap}
+html[data-scheme="dark"] .qt-cin .btn-dark{color:#1d1e20}
+.qt-form{display:flex;flex-direction:column;gap:12px}
+.qt-form label{display:flex;flex-direction:column;gap:6px;font-size:calc(12px*var(--fs,1));color:var(--sub)}
+.qt-form label small{color:var(--faint)}
+@media (prefers-reduced-motion:reduce){
+  .qt-face,.qt-scan,.qt-ufo{animation-duration:.01s !important}
+}
+
+/* 메인의 메뉴리스트 위젯(모바일) — 메뉴 폰트 따라감 (v2.1 사용자 제보: 폰트 지정이 안 먹음) */
+.menu-list a{font-family:var(--font-menu,var(--sans));font-weight:var(--fw-menu,400)}

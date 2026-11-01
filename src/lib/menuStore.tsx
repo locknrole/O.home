@@ -33,6 +33,8 @@ export interface MenuSettings {
   playlogMobile: string[];           //   〃 모바일 (기본 Date/Scenario/Role/Playtime)
   roadUpload: MenuPerm;              // 로드뷰 업로드 권한 (4.10 v1.7)
   roadComment: MenuPerm;             // 로드뷰 댓글 권한
+  quoteUpload?: MenuPerm;            // 인용구 쓰기 권한 (v2.1) — 미지정은 'member' (로드비와 같은 기본)
+  quoteComment?: MenuPerm;           // 인용구 댓글 권한 — 미지정은 'guest'
   backupView: 'gal' | 'list';        // 갤러리(그림백업) 기본 보기 (5.2)
   /** 갤러리 글쓰기 권한 (v2.0 사용자 요청) — 섹션 id별 · 미지정은 'member'(로그인한 모든 회원) */
   galWrite?: Record<string, MenuPerm>;

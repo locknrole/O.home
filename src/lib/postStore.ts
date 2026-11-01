@@ -38,7 +38,7 @@ export const COMMENT_KEY = 'ohome.comments.v1';
 export interface CommentRow extends Comment {
   targetId: string;                 // 달린 대상(글·로드뷰 항목·감상타래·방명록)의 id
   /** 대상 종류 — 같은 컬렉션을 나눠 쓴다 (thread·guest: v2.0 사용자 요청) */
-  target: 'post' | 'road' | 'thread' | 'guest';
+  target: 'post' | 'road' | 'thread' | 'guest' | 'quote';
 }
 
 export const COMMENT_SEED: CommentRow[] = [];

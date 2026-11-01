@@ -17,6 +17,7 @@ export const FEATURES: { href: string; label: string }[] = [
   { href: '/board', label: '리스트' },
   { href: '/gallery', label: '갤러리' },
   { href: '/loadb', label: '로드비' },
+  { href: '/quotes', label: '인용구' },
   { href: '/tchars', label: '캐릭터' },   // TRPG 캐릭터 — 자놀 캐릭터와는 href로 구분
   { href: '/trpg', label: '로그 백업' },
   { href: '/dotori', label: '도토리' },

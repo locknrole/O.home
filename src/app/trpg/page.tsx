@@ -277,7 +277,8 @@ function TrpgPageInner() {
           {isAdmin && <button className="btn btn-dark" style={{ whiteSpace: 'nowrap' }} onClick={() => setAddOpen(true)}>＋ ADD LOG</button>}
         </div>
       </div>
-      <div className="trpg-layout">
+      {/* 자관 필터는 목록 위 가로 한 줄 (v2.1 사용자 요청 — 예전엔 오른쪽 사이드, skin.css .filter-top) */}
+      <div className="trpg-layout filter-top">
         <div>
           {ticketView
             ? (
@@ -332,7 +333,7 @@ function TrpgPageInner() {
               onApply={applyOrder} onClose={() => setOrdFor(null)} />
           )}
         </div>
-        {/* 자관 연동 필터 (v1.2) */}
+        {/* 자관 연동 필터 (v1.2) — 화면에선 목록 위로 올라간다 (.filter-top) */}
         <div className="panel tagside">
           <h4>자관 필터</h4>
           <div className={`tag ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
