@@ -143,8 +143,11 @@ html[data-scheme="dark"] .g1-frame{background:#1b3327}   /* 다크 그림의 바
 .g1-frame img{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
 
 /* 로고 공통 */
-.brand{font-family:var(--font-logo,var(--sans));font-size:calc(15px*var(--fs,1));font-weight:700;letter-spacing:-.01em}
-.brand small{font-size:calc(9px*var(--fs,1));color:color-mix(in srgb,var(--top-fg) 55%,transparent)}
+.brand{font-family:var(--serif);   /* 로고 = 환경설정 > 폰트의 「타이틀」 (v2.1 — 없는 --font-logo를 보고 있어 지정이 안 먹었다) */
+  --fs:var(--fs-title,1);   /* 크기·굵기도 「타이틀」을 따른다 (v2.1 사용자 제보 — 환경설정에서 크기를 바꿔도 그대로였다) */
+  font-size:calc(15px*var(--fs,1));font-weight:var(--fw-title,700);letter-spacing:-.01em}
+.brand small{--fs:var(--fs-logosub,1);   /* 아랫줄은 「로고 서브타이틀」 크기 — 위의 타이틀 배율을 물려받지 않게 */
+  font-size:calc(9px*var(--fs,1));color:color-mix(in srgb,var(--top-fg) 55%,transparent)}
 .brand:empty{display:none}   /* 제목·소제목을 둘 다 숨기면 빈 칸이 여백으로 남지 않게 */
 .brand-row{display:inline-flex;align-items:center;gap:8px}
 .brand-ico{display:inline-grid;width:20px;height:20px;flex:0 0 20px;color:var(--primary-ink);animation:ufoHover 3s ease-in-out infinite}
@@ -203,7 +206,8 @@ html[data-scheme="dark"] .brand-ico .alien{opacity:1;transform:none}
     background:var(--dd-bg);color:var(--dd-fg);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-dd);
     animation:fade .15s;
   }
-  .cat-pop button{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font-size:calc(13.5px*var(--fs,1));color:inherit}
+  .cat-pop button{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font-size:calc(13.5px*var(--fs,1));color:inherit;
+    font-family:var(--font-menu,var(--sans));font-weight:var(--fw-menu,400)}   /* 모바일 카테고리 목록도 메뉴 폰트 (v2.1) */
   .cat-pop button:hover,.cat-pop button.on{background:var(--hover)}
   .cat-pop .cp-grp + .cp-grp,.cat-pop .cp-grp + button,.cat-pop button + .cp-grp{border-top:1px solid var(--line);margin-top:4px;padding-top:4px}
   .cat-pop .cp-cap{padding:8px 12px 2px;font-size:calc(10.5px*var(--fs,1));font-weight:700;letter-spacing:.06em;color:color-mix(in srgb,var(--dd-fg) 55%,transparent)}
