@@ -349,6 +349,13 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
   .rel-body > .mini-prof{display:flex;flex-direction:column}
   .rel-body > .mini-prof > .palette-row{order:9;margin-top:auto;padding-top:11px;padding-bottom:14px}
 }
+/* TRPG 로그 — 자관 필터를 오른쪽 사이드에서 목록 위 가로 한 줄로 (v2.1 사용자 요청). 보기(티켓형/기본형)는 같은 줄 오른쪽 끝 */
+.trpg-layout.filter-top{grid-template-columns:1fr}
+.filter-top > .tagside{order:-1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:10px 14px}
+.filter-top > .tagside h4{margin:0 6px 0 0}
+.filter-top > .tagside h4:not(:first-child){margin:0 4px 0 auto !important}
+.filter-top > .tagside .tag{gap:6px;padding:5px 10px}
+.filter-top > .tagside > div[style]{width:6px;height:auto !important}   /* 보기 라디오 사이 세로 간격 칸 → 가로 간격 */
 /* 폰 폭에선 아래 연동 칸(백업·로그, 역극·trpg)을 한 줄에 하나씩 — 두 칸이면 제목이 줄바꿈될 만큼 좁다 */
 @media (max-width:620px){
   .page-rel-detail .g2{grid-template-columns:1fr}
