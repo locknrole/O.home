@@ -2045,3 +2045,6 @@ html[data-scheme="dark"] .si-date{color:color-mix(in srgb,var(--ink) 74%,var(--p
 @media(max-width:620px){.ssul-side{position:static;max-height:none}}
 .ssul-more{display:inline-block;margin-top:8px;font-size:calc(11px*var(--fs,1));color:var(--faint);text-decoration:underline;cursor:var(--cur-pointer,pointer)}
 .ssul-more:hover{color:var(--ink)}
+
+/* 내 홈 배너 — 누르면 코드 복사 (HtmlBody가 처리) */
+.html-body #banner-copy{cursor:var(--cur-pointer,pointer)}
