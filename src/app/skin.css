@@ -76,6 +76,8 @@ html:not([data-scheme="custom"]) body::after{
   /* 환경설정 — 컨트롤 정렬 때문에 최소폭이 있는 화면이라 기둥을 넓히고 좌측 탭·여백을 줄여
      1280px 화면에서도 잘리지 않게. 그보다 좁으면 globals.css의 가로 스크롤이 받는다 */
   #appMain:has(.settings-layout){flex-basis:1180px}
+  /* 자관·캐릭터 상세 — 여러 칸 배치라 기둥을 줄이기 전 폭(1000px) 그대로 (v2.1 사용자 요청) */
+  #appMain:has(.page-rel-detail),#appMain:has(.page-char-detail){flex-basis:1000px}
   .page:has(.settings-layout){padding-left:16px;padding-right:16px}
   .settings-layout{grid-template-columns:160px 1fr;min-width:1020px}
 
@@ -336,6 +338,16 @@ html.scheme-switching *,html.scheme-switching *::before,html.scheme-switching *:
   .page-rel-detail > .au-list{position:relative;top:auto;right:auto;justify-content:flex-start;overflow-x:auto;padding:2px 2px 4px;margin-bottom:6px;scrollbar-width:none}
   .page-rel-detail > .au-list::-webkit-scrollbar{display:none}
   .page-rel-detail > .au-list .au-item{flex-shrink:0}
+}
+/* 자관 상세 — 소개 카드 320 → 290, 남는 폭은 가운데 그림으로 (v2.1 사용자 요청). 960px 이하는 globals.css의 세로 쌓기 그대로 */
+@media (min-width:961px){
+  .rel-body{grid-template-columns:290px 1fr 290px}
+  /* 소개 카드 높이 = 가운데 그림 높이 (v2.1 사용자 요청) — 줄 높이만큼 늘이되, 그림 아래 ‹ 점 › 줄(10+26px)만큼은 빼서 그림 아래 끝에 맞춘다 */
+  .rel-body > .mini-prof{align-self:stretch}
+  .rel-body:has(.art-nav) > .mini-prof{margin-bottom:36px}
+  /* 컬러 팔레트 마름모는 카드 맨 아래에 (v2.1 사용자 요청) — 키워드 줄보다도 아래, 늘어난 빈칸은 그 위로 */
+  .rel-body > .mini-prof{display:flex;flex-direction:column}
+  .rel-body > .mini-prof > .palette-row{order:9;margin-top:auto;padding-top:11px;padding-bottom:14px}
 }
 /* 폰 폭에선 아래 연동 칸(백업·로그, 역극·trpg)을 한 줄에 하나씩 — 두 칸이면 제목이 줄바꿈될 만큼 좁다 */
 @media (max-width:620px){
